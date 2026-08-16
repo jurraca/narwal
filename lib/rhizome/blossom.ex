@@ -35,19 +35,40 @@ defmodule Rhizome.Blossom do
   """
   @spec head_blob([String.t()], String.t()) :: :ok | :not_found
   def head_blob(servers, hash_hex) when is_list(servers) and is_binary(hash_hex) do
+    case find_blob_server(servers, hash_hex) do
+      {:ok, _server} -> :ok
+      :not_found -> :not_found
+    end
+  end
+
+  @doc """
+  Find the first Blossom server that reports the blob exists, via
+  `HEAD /<sha256>` (BUD-01). Tries servers in order.
+
+  Returns `{:ok, server}` or `:not_found`. Used by the router to 302-redirect
+  Nix clients to the server holding the blob.
+  """
+  @spec find_blob_server([String.t()], String.t()) :: {:ok, String.t()} | :not_found
+  def find_blob_server(servers, hash_hex) when is_list(servers) and is_binary(hash_hex) do
     Enum.reduce_while(servers, :not_found, fn server, _acc ->
       case head_from_server(server, hash_hex) do
-        :ok -> {:halt, :ok}
+        :ok -> {:halt, {:ok, server}}
         :not_found -> {:cont, :not_found}
         :error -> {:cont, :not_found}
       end
     end)
   end
 
+  @doc "Public Blossom blob URL: `<server>/<sha256hex>` (BUD-01 GET)."
+  @spec blob_url(String.t(), String.t()) :: String.t()
+  def blob_url(server, hash_hex), do: build_url(server, hash_hex)
+
   defp head_from_server(server, hash_hex) do
     url = build_url(server, hash_hex)
 
-    case Req.head(url, receive_timeout: 10_000) do
+    # retry: false — our own server loop is the retry mechanism; retrying a
+    # refused connection here just delays failover to the next server.
+    case Req.head(url, receive_timeout: 10_000, retry: false) do
       {:ok, %{status: 200}} ->
         :ok
 
@@ -67,7 +88,7 @@ defmodule Rhizome.Blossom do
   defp fetch_from_server(server, hash_hex) do
     url = build_url(server, hash_hex)
 
-    case Req.get(url, receive_timeout: 30_000) do
+    case Req.get(url, receive_timeout: 30_000, retry: false) do
       {:ok, %{status: 200, body: body}} ->
         if verify_hash(body, hash_hex) do
           {:ok, body}

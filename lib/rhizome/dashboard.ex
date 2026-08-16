@@ -158,10 +158,6 @@ defmodule Rhizome.Dashboard do
               <div class="value">#{stats[:nar_requests]}</div>
             </div>
             <div class="stat-box">
-              <div class="label">Bytes served</div>
-              <div class="value">#{format_bytes(stats[:nar_bytes_served])}</div>
-            </div>
-            <div class="stat-box">
               <div class="label">NAR 404s</div>
               <div class="value warn">#{stats[:nar_404s]}</div>
             </div>

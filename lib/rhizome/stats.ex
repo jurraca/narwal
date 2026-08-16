@@ -10,8 +10,7 @@ defmodule Rhizome.Stats do
     :narinfo_hits      — ETS reverse index hits
     :narinfo_misses    — fell through to slow path
     :narinfo_404s      — not found
-    :nar_requests      — total NAR GETs
-    :nar_bytes_served  — total bytes streamed
+    :nar_requests      — total NAR GETs (redirects)
     :nar_404s          — not found
   """
 
@@ -25,7 +24,6 @@ defmodule Rhizome.Stats do
     :narinfo_misses,
     :narinfo_404s,
     :nar_requests,
-    :nar_bytes_served,
     :nar_404s
   ]
 

@@ -6,8 +6,11 @@ defmodule Rhizome.Router do
   - GET /nix-cache-info — static text
   - GET /<hashpart>.narinfo — resolve via Nostr root + hashtree + Blossom
   - HEAD /<hashpart>.narinfo — existence check
-  - GET /nar/<nix32filehash>.nar[.ext] — stream blob from Blossom
+  - GET /nar/<nix32filehash>.nar[.ext] — 302 redirect to Blossom server holding the blob
   - HEAD /nar/<nix32filehash>.nar[.ext] — existence check
+
+  Narinfos are proxied (small, cached in ETS). NARs are redirected, not
+  proxied — Nix downloads them directly from Blossom and verifies FileHash.
 
   Hot path (cache hits): zero GenServer calls — all reads go through ETS.
   Cold path (cache miss): falls back to Blossom fetch in caller process.
@@ -196,6 +199,11 @@ defmodule Rhizome.Router do
 
   ## NAR serving
 
+  # NARs are NOT proxied through Rhizome — a NAR can be hundreds of MB, and
+  # buffering it in the request process would scale memory with concurrency.
+  # Instead we HEAD-probe the Blossom servers for the blob and 302-redirect
+  # the Nix client to the server that has it. No trust is lost: Nix verifies
+  # the downloaded bytes against the narinfo's FileHash itself.
   defp serve_nar(conn, nix32_hash) do
     Stats.incr(:nar_requests)
 
@@ -204,26 +212,20 @@ defmodule Rhizome.Router do
          hex_str <- Base.encode16(hex_hash, case: :lower),
          servers <- RootResolver.get_blossom_servers(),
          false <- servers == [],
-         {:ok, body} <- Blossom.fetch_blob(servers, hex_str) do
-      Stats.incr(:nar_bytes_served, byte_size(body))
+         {:ok, server} <- Blossom.find_blob_server(servers, hex_str) do
       conn
-      |> put_resp_content_type("application/x-nix-nar")
-      |> put_resp_header("accept-ranges", "bytes")
-      |> send_resp(200, body)
+      |> put_resp_header("location", Blossom.blob_url(server, hex_str))
+      |> send_resp(302, "")
     else
       {:error, :invalid_character} ->
         send_resp(conn, 400, "Invalid Nix32 hash")
 
-      {:error, :not_found} ->
+      :not_found ->
         Stats.incr(:nar_404s)
         send_resp(conn, 404, "Not Found")
 
       true ->
         send_resp(conn, 503, "Root not yet resolved")
-
-      {:error, reason} ->
-        Logger.warning("nar #{nix32_hash} failed: #{inspect(reason)}")
-        send_resp(conn, 502, "Bad Gateway")
 
       _other ->
         send_resp(conn, 400, "Invalid NAR hash")
