@@ -1,4 +1,4 @@
-defmodule Rhizome.Router do
+defmodule Narwal.Router do
   @moduledoc """
   Plug router presenting the Nix binary cache HTTP API.
 
@@ -23,7 +23,7 @@ defmodule Rhizome.Router do
 
   require Logger
 
-  alias Rhizome.{Blossom, Dashboard, Manifest, Nix32, RootResolver, Stats, TreeCache}
+  alias Narwal.{Blossom, Dashboard, Manifest, Nix32, RootResolver, Stats, TreeCache}
 
   plug(:maybe_log)
   plug(:cors)
@@ -32,7 +32,7 @@ defmodule Rhizome.Router do
   plug(:dispatch)
 
   get "/" do
-    send_resp(conn, 200, "rhizome")
+    send_resp(conn, 200, "narwal")
   end
 
   get "/dashboard" do
@@ -199,7 +199,7 @@ defmodule Rhizome.Router do
 
   ## NAR serving
 
-  # NARs are NOT proxied through Rhizome — a NAR can be hundreds of MB, and
+  # NARs are NOT proxied through Narwal — a NAR can be hundreds of MB, and
   # buffering it in the request process would scale memory with concurrency.
   # Instead we HEAD-probe the Blossom servers for the blob and 302-redirect
   # the Nix client to the server that has it. No trust is lost: Nix verifies
@@ -264,8 +264,8 @@ defmodule Rhizome.Router do
   end
 
   defp build_cache_info do
-    priority = Application.get_env(:rhizome, :priority, 30)
-    store_dir = Application.get_env(:rhizome, :store_dir, "/nix/store")
+    priority = Application.get_env(:narwal, :priority, 30)
+    store_dir = Application.get_env(:narwal, :store_dir, "/nix/store")
     "StoreDir: #{store_dir}\nWantMassQuery: 0\nPriority: #{priority}\n"
   end
 

@@ -1,7 +1,7 @@
-defmodule Rhizome.NhashTest do
+defmodule Narwal.NhashTest do
   use ExUnit.Case, async: true
 
-  alias Rhizome.Nhash
+  alias Narwal.Nhash
 
   # Test vectors generated with Bechamel.encode("nhash", tlv)
   # to ensure cross-implementation compatibility.

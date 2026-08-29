@@ -1,7 +1,7 @@
-defmodule Rhizome.RootResolverTest do
+defmodule Narwal.RootResolverTest do
   use ExUnit.Case, async: true
 
-  alias Rhizome.{RootResolver, TreeCache}
+  alias Narwal.{RootResolver, TreeCache}
 
   defp put_node(node) do
     hex = Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)

@@ -1,8 +1,8 @@
-# Rhizome ETS Cache Tables
+# Narwal ETS Cache Tables
 
-Rhizome maintains two separate ETS tables with distinct responsibilities. Both are owned by GenServers but are public and accessed directly by other processes (Router, Dashboard) without GenServer calls for performance.
+Narwal maintains two separate ETS tables with distinct responsibilities. Both are owned by GenServers but are public and accessed directly by other processes (Router, Dashboard) without GenServer calls for performance.
 
-## 1. `:rhizome_roots` — owned by `RootResolver`
+## 1. `:narwal_roots` — owned by `RootResolver`
 
 This table stores **mutable publisher state** and the **filename-to-hash lookup index**. Its keys are heterogeneous by design.
 
@@ -50,7 +50,7 @@ Key: `{{:narinfo_keys, "pubkey_hex"}, [{:narinfo, "hello-2.12.narinfo"}, ...]}`
 - Tracks every `{:narinfo, ...}` key inserted for this publisher
 - When a new root event replaces the old one, `RootResolver` iterates this list and deletes all stale narinfo entries before building the new index
 
-## 2. `:rhizome_tree_cache` — owned by `TreeCache`
+## 2. `:narwal_tree_cache` — owned by `TreeCache`
 
 This table stores **immutable content-addressed blobs and nodes**. Everything in it is keyed by SHA256 hash and never changes or evicts.
 
@@ -74,16 +74,16 @@ Key: `{{:narinfo, "hash_hex"}, <<raw bytes>>}`
 
 | Table | What it stores | Who writes | Who reads | Why separate |
 |-------|---------------|-----------|-----------|--------------|
-| `:rhizome_roots` | Mutable index + publisher metadata | `RootResolver` on Nostr event | `Router` (narinfo filename lookup), `Dashboard` (publisher list) | Needs to be wiped and rebuilt when a publisher replaces their root |
-| `:rhizome_tree_cache` | Immutable content-addressed blobs | `RootResolver` (tree walk), `Router` (cold path miss) | `RootResolver` (tree walk), `Router` (narinfo bytes), `Dashboard` (manifest display) | Never needs eviction — same hash always means same bytes |
+| `:narwal_roots` | Mutable index + publisher metadata | `RootResolver` on Nostr event | `Router` (narinfo filename lookup), `Dashboard` (publisher list) | Needs to be wiped and rebuilt when a publisher replaces their root |
+| `:narwal_tree_cache` | Immutable content-addressed blobs | `RootResolver` (tree walk), `Router` (cold path miss) | `RootResolver` (tree walk), `Router` (narinfo bytes), `Dashboard` (manifest display) | Never needs eviction — same hash always means same bytes |
 
 ## Cache flow example
 
 **First request for a narinfo:**
 
 ```
-Nix ──GET /hello.narinfo──► Rhizome
-  1. Router: ETS lookup in :rhizome_roots
+Nix ──GET /hello.narinfo──► Narwal
+  1. Router: ETS lookup in :narwal_roots
      {:narinfo, "hello.narinfo"} → {"abc123...", ["https://cdn.example.com"]}
   2. Router: TreeCache miss
      {:narinfo, "abc123..."} → not found
@@ -96,8 +96,8 @@ Nix ──GET /hello.narinfo──► Rhizome
 **Second request for the same narinfo:**
 
 ```
-Nix ──GET /hello.narinfo──► Rhizome
-  1. Router: ETS lookup in :rhizome_roots
+Nix ──GET /hello.narinfo──► Narwal
+  1. Router: ETS lookup in :narwal_roots
      {:narinfo, "hello.narinfo"} → {"abc123...", servers}
   2. Router: TreeCache hit
      {:narinfo, "abc123..."} → <<raw bytes>> (zero HTTP requests)

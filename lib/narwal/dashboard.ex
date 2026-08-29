@@ -1,6 +1,6 @@
-defmodule Rhizome.Dashboard do
+defmodule Narwal.Dashboard do
   @moduledoc """
-  HTML rendering for the Rhizome dashboard.
+  HTML rendering for the Narwal dashboard.
 
   Reads ETS tables directly — no GenServer calls.
   Two render functions:
@@ -8,7 +8,7 @@ defmodule Rhizome.Dashboard do
     - render_fragment/0 — just the status <div> (polled by HTMX every 2s)
   """
 
-  alias Rhizome.{Stats, TreeCache}
+  alias Narwal.{Stats, TreeCache}
 
   @htmx_cdn "https://unpkg.com/htmx.org@1.9.12"
 
@@ -86,11 +86,11 @@ defmodule Rhizome.Dashboard do
     "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n" <>
       "<meta charset=\"utf-8\">\n" <>
       "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" <>
-      "<title>Rhizome — Nix Binary Cache Proxy</title>\n" <>
+      "<title>Narwal — Nix Binary Cache Proxy</title>\n" <>
       "<script src=\"#{@htmx_cdn}\"></script>\n" <>
       "<style>\n#{@css}</style>\n" <>
       "</head>\n<body>\n" <>
-      "<h1>Rhizome</h1>\n" <>
+      "<h1>Narwal</h1>\n" <>
       "<div class=\"subtitle\">Nix Binary Cache Proxy — Nostr + Blossom</div>\n" <>
       render_fragment() <>
       "<h2>Roots</h2>\n" <>
@@ -99,7 +99,7 @@ defmodule Rhizome.Dashboard do
   end
 
   def render_fragment do
-    relays = Application.get_env(:rhizome, :relays, [])
+    relays = Application.get_env(:narwal, :relays, [])
     roots = get_roots()
     blossom_servers = get_blossom_servers()
     cache_counts = get_cache_counts()
@@ -360,7 +360,7 @@ defmodule Rhizome.Dashboard do
   end
 
   defp get_roots do
-    case :ets.match(:rhizome_roots, {{:root, :"$1"}, :"$2"}) do
+    case :ets.match(:narwal_roots, {{:root, :"$1"}, :"$2"}) do
       [] -> []
       rows -> Enum.map(rows, fn [pubkey, root] -> Map.put(root, :pubkey, pubkey) end)
     end
@@ -369,7 +369,7 @@ defmodule Rhizome.Dashboard do
   end
 
   defp get_blossom_servers do
-    case :ets.lookup(:rhizome_roots, :blossom_servers) do
+    case :ets.lookup(:narwal_roots, :blossom_servers) do
       [{:blossom_servers, servers}] -> servers
       [] -> []
     end
@@ -378,13 +378,13 @@ defmodule Rhizome.Dashboard do
   end
 
   defp get_cache_counts do
-    nodes = safe_select_count(:rhizome_tree_cache, {{:node, :_}, :_})
-    narinfos = safe_select_count(:rhizome_tree_cache, {{:narinfo, :_}, :_})
+    nodes = safe_select_count(:narwal_tree_cache, {{:node, :_}, :_})
+    narinfos = safe_select_count(:narwal_tree_cache, {{:narinfo, :_}, :_})
     %{nodes: nodes, narinfos: narinfos}
   end
 
   defp get_narinfo_index_size do
-    safe_select_count(:rhizome_roots, {{:narinfo, :_}, :_})
+    safe_select_count(:narwal_roots, {{:narinfo, :_}, :_})
   end
 
   defp safe_select_count(table, pattern) do

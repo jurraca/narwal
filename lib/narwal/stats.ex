@@ -1,4 +1,4 @@
-defmodule Rhizome.Stats do
+defmodule Narwal.Stats do
   @moduledoc """
   ETS counter table for request statistics.
 
@@ -16,7 +16,7 @@ defmodule Rhizome.Stats do
 
   use GenServer
 
-  @table :rhizome_stats
+  @table :narwal_stats
 
   @counters [
     :narinfo_requests,

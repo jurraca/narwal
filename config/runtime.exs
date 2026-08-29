@@ -46,7 +46,7 @@ blossom_servers =
   |> String.split(",", trim: true)
   |> Enum.map(&String.trim/1)
 
-config :rhizome,
+config :narwal,
   priority: priority,
   store_dir: store_dir,
   port: port,
@@ -70,5 +70,5 @@ if blossom_servers == [] and npubs != [] do
 end
 
 if npubs == [] and relays == [] do
-  Logger.info("Rhizome: no publisher configured, running in passive mode (nix-cache-info only)")
+  Logger.info("Narwal: no publisher configured, running in passive mode (nix-cache-info only)")
 end

@@ -1,4 +1,4 @@
-defmodule Rhizome.Blossom do
+defmodule Narwal.Blossom do
   @moduledoc """
   Inline Blossom blob fetch client (BUD-01).
 

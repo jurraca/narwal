@@ -1,4 +1,4 @@
-defmodule Rhizome.Manifest do
+defmodule Narwal.Manifest do
   @moduledoc """
   BUD-16 Hashtree directory manifest decoder.
 

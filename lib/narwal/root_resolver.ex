@@ -1,4 +1,4 @@
-defmodule Rhizome.RootResolver do
+defmodule Narwal.RootResolver do
   @moduledoc """
   GenServer that resolves and caches Nostr root events (kind 17091/37091)
   for one or more configured publishers.
@@ -28,9 +28,9 @@ defmodule Rhizome.RootResolver do
 
   require Logger
 
-  alias Rhizome.{Blossom, Manifest, Nhash}
+  alias Narwal.{Blossom, Manifest, Nhash}
 
-  @table :rhizome_roots
+  @table :narwal_roots
   @refresh_ttl :timer.minutes(5)
 
   ## Public API (ETS direct reads — no GenServer call)
@@ -294,7 +294,7 @@ defmodule Rhizome.RootResolver do
     update_blossom_servers(state.table)
 
     task =
-      Task.Supervisor.async_nolink(Rhizome.TaskSupervisor, fn ->
+      Task.Supervisor.async_nolink(Narwal.TaskSupervisor, fn ->
         collect_narinfo_index(root)
       end)
 
@@ -359,7 +359,7 @@ defmodule Rhizome.RootResolver do
       {:ok, bytes} ->
         case Manifest.decode_node(bytes) do
           {:ok, node} ->
-            Rhizome.TreeCache.insert_node(root.root_hash_hex, node)
+            Narwal.TreeCache.insert_node(root.root_hash_hex, node)
 
             {link_count, total_bytes, entries} =
               walk_dir_collect(root.root_hash_hex, root.blossom_servers, MapSet.new())
@@ -387,7 +387,7 @@ defmodule Rhizome.RootResolver do
 
       case get_node(hash_hex, servers) do
         {:ok, node} ->
-          Rhizome.TreeCache.insert_node(hash_hex, node)
+          Narwal.TreeCache.insert_node(hash_hex, node)
 
           Enum.reduce(node.l, {0, 0, []}, fn link, {count, bytes, entries} ->
             link_type = Map.get(link, :t, 0)
@@ -418,7 +418,7 @@ defmodule Rhizome.RootResolver do
   end
 
   defp get_node(hash_hex, servers) do
-    case Rhizome.TreeCache.lookup_node(hash_hex) do
+    case Narwal.TreeCache.lookup_node(hash_hex) do
       {:ok, node} -> {:ok, node}
       :miss -> fetch_and_cache_node(hash_hex, servers)
     end
@@ -429,7 +429,7 @@ defmodule Rhizome.RootResolver do
       {:ok, bytes} ->
         case Manifest.decode_node(bytes) do
           {:ok, node} ->
-            Rhizome.TreeCache.insert_node(hash_hex, node)
+            Narwal.TreeCache.insert_node(hash_hex, node)
             {:ok, node}
 
           {:error, _} = err ->

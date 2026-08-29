@@ -1,6 +1,6 @@
 import Config
 
-config :rhizome,
+config :narwal,
   priority: 30,
   store_dir: "/nix/store"
 

@@ -1,4 +1,4 @@
-defmodule Rhizome.Nhash do
+defmodule Narwal.Nhash do
   @moduledoc """
   Decode nhash bech32 identifiers used in htree:// URIs.
 
@@ -15,7 +15,7 @@ defmodule Rhizome.Nhash do
 
   ## Examples
 
-      iex> {:ok, %{hash: <<0x42::256>>}} = Rhizome.Nhash.decode("nhash1qqs2j4ezx3n")
+      iex> {:ok, %{hash: <<0x42::256>>}} = Narwal.Nhash.decode("nhash1qqs2j4ezx3n")
   """
   @spec decode(binary()) :: {:ok, map()} | {:error, term()}
   def decode(uri_or_nhash) when is_binary(uri_or_nhash) do

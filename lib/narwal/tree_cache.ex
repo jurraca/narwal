@@ -1,4 +1,4 @@
-defmodule Rhizome.TreeCache do
+defmodule Narwal.TreeCache do
   @moduledoc """
   ETS cache for hashtree tree nodes and narinfo blobs.
 
@@ -15,9 +15,9 @@ defmodule Rhizome.TreeCache do
 
   use GenServer
 
-  alias Rhizome.{Blossom, Manifest}
+  alias Narwal.{Blossom, Manifest}
 
-  @table :rhizome_tree_cache
+  @table :narwal_tree_cache
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)

@@ -1,9 +1,9 @@
-defmodule Rhizome.MixProject do
+defmodule Narwal.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :rhizome,
+      app: :narwal,
       version: "0.1.0",
       elixir: "~> 1.20-rc",
       start_permanent: Mix.env() == :prod,
@@ -13,19 +13,19 @@ defmodule Rhizome.MixProject do
 
   def application do
     [
-      mod: {Rhizome.Application, []},
+      mod: {Narwal.Application, []},
       extra_applications: [:logger]
     ]
   end
 
   defp deps do
     [
-      {:bandit, "~> 1.8"},
+      {:bandit, "~> 1.12.5"},
       {:plug, "~> 1.16"},
       {:req, "~> 0.7.2", override: true},
       {:msgpax, "~> 2.0"},
       {:bechamel, "~> 1.1"},
-      {:nostr_ex, path: "/home/base/code/nostr-elixir/nostr_ex"}
+      {:nostr_ex, github: "jurraca/nostr_ex"}
     ]
   end
 end

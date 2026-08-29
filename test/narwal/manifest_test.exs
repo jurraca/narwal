@@ -1,4 +1,4 @@
-defmodule Rhizome.ManifestTest do
+defmodule Narwal.ManifestTest do
   use ExUnit.Case, async: true
 
   test "decode_node skips malformed links instead of crashing" do
@@ -13,12 +13,12 @@ defmodule Rhizome.ManifestTest do
     }
 
     encoded = Msgpax.pack!(node)
-    {:ok, decoded} = Rhizome.Manifest.decode_node(encoded)
+    {:ok, decoded} = Narwal.Manifest.decode_node(encoded)
 
     names = Enum.map(decoded.l, & &1.n)
     assert names == ["good.narinfo", "also-good.narinfo"]
 
-    assert {:ok, link} = Rhizome.Manifest.find_link(decoded.l, "good.narinfo")
+    assert {:ok, link} = Narwal.Manifest.find_link(decoded.l, "good.narinfo")
     assert link.s == 42
   end
 
@@ -34,7 +34,7 @@ defmodule Rhizome.ManifestTest do
       ]
     }
 
-    {:ok, decoded} = Rhizome.Manifest.decode_node(Msgpax.pack!(node))
+    {:ok, decoded} = Narwal.Manifest.decode_node(Msgpax.pack!(node))
     assert decoded.l == []
     assert Enum.all?(decoded.l, &is_map/1)
   end
