@@ -1,5 +1,5 @@
 {
-  description = "Nix-Blossom proxy server in Elixir";
+  description = "Narwal — Nix binary cache proxy over Nostr + Blossom";
 
   inputs = {
     nixpkgs.url = github:NixOS/nixpkgs/nixos-26.05;
@@ -12,24 +12,45 @@
       hex = beamPackages.hex;
     };
 
-    forAllSystems = nixpkgs.lib.genAttrs [
+    supportedSystems = [
       "x86_64-linux"
       "aarch64-linux"
-      #"x86_64-darwin"
-      #"aarch64-darwin"
     ];
+
+    forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
 
     nixpkgsFor = system:
       import nixpkgs {
         inherit system;
         overlays = [overlay];
       };
+  in {
+    packages = forAllSystems (system: let
+      pkgs = nixpkgsFor system;
+      inherit (pkgs) beamPackages;
     in {
+      default = beamPackages.mixRelease {
+        pname = "narwal";
+        version = "0.1.0";
+        src = ./.;
+
+        mixNixDeps = import ./deps.nix { inherit pkgs beamPackages; };
+
+        buildInputs = [ pkgs.openssl ];
+      };
+
+      narwal = self.packages.${system}.default;
+    });
+
     devShells = forAllSystems (system: let
       pkgs = nixpkgsFor system;
     in {
       default = pkgs.callPackage ./shell.nix {};
     });
+
+    nixosModules = {
+      narwal = import ./module.nix;
+      default = self.nixosModules.narwal;
+    };
   };
 }
-

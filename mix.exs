@@ -7,7 +7,13 @@ defmodule Narwal.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20-rc",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      releases: [
+        narwal: [
+          include_executables_for: [:unix],
+          applications: [runtime_tools: :permanent]
+        ]
+      ]
     ]
   end
 
@@ -25,7 +31,9 @@ defmodule Narwal.MixProject do
       {:req, "~> 0.7.2", override: true},
       {:msgpax, "~> 2.0"},
       {:bechamel, "~> 1.1"},
-      {:nostr_ex, github: "jurraca/nostr_ex"}
+      {:nostr_ex, github: "jurraca/nostr_ex"},
+      # dev deps
+      {:deps_nix, "~> 3.1.1", only: :dev}
     ]
   end
 end
