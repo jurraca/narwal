@@ -21,7 +21,7 @@ defmodule Narwal.RootResolver do
   All reads go through ETS directly — no GenServer calls on the hot path.
   The GenServer only handles Nostr subscriptions and index commits.
 
-  Supports multiple publishers via RHIZOME_PUBLISHER_NPUBS (comma-separated).
+  Supports multiple publishers via NARWAL_PUBLISHER_NPUBS (comma-separated).
   """
 
   use GenServer

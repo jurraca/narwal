@@ -7,8 +7,10 @@
 
   outputs = { self, nixpkgs }: let
     overlay = prev: final: rec {
-      beamPackages = prev.beamMinimal29Packages;
-      elixir = beamPackages.elixir_1_20;
+      beamPackages = prev.beamMinimal29Packages // {
+        elixir = prev.beamMinimal29Packages.elixir_1_20;
+      };
+      elixir = beamPackages.elixir;
       hex = beamPackages.hex;
     };
 
@@ -34,9 +36,9 @@
         version = "0.1.0";
         src = ./.;
 
-        mixNixDeps = import ./deps.nix { inherit pkgs beamPackages; };
+        mixNixDeps = pkgs.callPackages ./deps.nix { };
 
-        buildInputs = [ pkgs.openssl ];
+        buildInputs = [ pkgs.openssl pkgs.autoreconfHook ];
       };
 
       narwal = self.packages.${system}.default;

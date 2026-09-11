@@ -90,15 +90,15 @@ in {
       after = [ "network-online.target" ];
 
       environment = {
-        RHIZOME_PORT = toString cfg.port;
-        RHIZOME_PRIORITY = toString cfg.priority;
-        RHIZOME_STORE_DIR = cfg.storeDir;
-        RHIZOME_PUBLISHER_NPUBS = lib.concatStringsSep "," cfg.publisherNpubs;
-        RHIZOME_RELAYS = lib.concatStringsSep "," cfg.relays;
-        RHIZOME_BLOSSOM_SERVERS = lib.concatStringsSep "," cfg.blossomServers;
-        RHIZOME_HTTP_ENABLED = "true";
+        NARWAL_PORT = toString cfg.port;
+        NARWAL_PRIORITY = toString cfg.priority;
+        NARWAL_STORE_DIR = cfg.storeDir;
+        NARWAL_PUBLISHER_NPUBS = lib.concatStringsSep "," cfg.publisherNpubs;
+        NARWAL_RELAYS = lib.concatStringsSep "," cfg.relays;
+        NARWAL_BLOSSOM_SERVERS = lib.concatStringsSep "," cfg.blossomServers;
+        NARWAL_HTTP_ENABLED = "true";
       } // (lib.optionalAttrs (cfg.channel != null) {
-        RHIZOME_CHANNEL = cfg.channel;
+        NARWAL_CHANNEL = cfg.channel;
       });
 
       serviceConfig = {
