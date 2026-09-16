@@ -40,6 +40,15 @@
 
         buildInputs = [ pkgs.openssl ];
 
+        # Path flake inputs (e.g. a local checkout) are copied WITHOUT
+        # git filtering, so a dev tree's deps/ + _build/ can land in the
+        # sandbox. Real deps/ dirs break the symlink farm in configurePhase
+        # (ln descends into them; dies on deps like mint that ship src/) and
+        # stale _build/ beams would poison the release compile. Start clean.
+        preConfigure = ''
+          rm -rf deps _build
+        '';
+
         meta = {
           mainProgram = "narwal";
         };
