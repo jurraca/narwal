@@ -6,12 +6,12 @@
   };
 
   outputs = { self, nixpkgs }: let
-    overlay = prev: final: rec {
-      beamPackages = prev.beamMinimal29Packages // {
-        elixir = prev.beamMinimal29Packages.elixir_1_20;
-      };
-      elixir = beamPackages.elixir;
-      hex = beamPackages.hex;
+    overlay = final: prev: {
+      beamPackages = prev.beamMinimal29Packages.extend (pself: psuper: {
+        elixir = psuper.elixir_1_20;
+      });
+      elixir = final.beamPackages.elixir;
+      hex = final.beamPackages.hex;
     };
 
     supportedSystems = [

@@ -32,6 +32,7 @@ defmodule Narwal.MixProject do
       {:msgpax, "~> 2.0"},
       {:bechamel, "~> 1.1"},
       {:nostr_ex, github: "jurraca/nostr_ex"},
+      {:nostr_core, github: "jurraca/nostr_core"},
       # dev deps
       {:deps_nix, "~> 3.1.1", only: :dev}
     ]

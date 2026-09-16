@@ -439,6 +439,29 @@ let
         in
         drv;
 
+      nostr_core =
+        let
+          version = "0.1.0";
+          drv = buildMix {
+            inherit version;
+            name = "nostr_core";
+            appConfigPath = ./config;
+
+            src = fetchFromGitHub {
+              owner = "jurraca";
+              repo = "nostr_core";
+              rev = "8fc8ff547f040d131299cc881a46d210a1a167c4";
+              hash = "sha256-Z7W5PDYgJBIVfmuhRpRU5gp8IdK/Yty7yui1LJ73wkk=";
+            };
+
+            beamDeps = [
+              bechamel
+              lib_secp256k1
+            ];
+          };
+        in
+        drv;
+
       nostr_ex =
         let
           version = "0.2.3";
