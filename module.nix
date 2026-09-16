@@ -97,6 +97,15 @@ in {
         NARWAL_RELAYS = lib.concatStringsSep "," cfg.relays;
         NARWAL_BLOSSOM_SERVERS = lib.concatStringsSep "," cfg.blossomServers;
         NARWAL_HTTP_ENABLED = "true";
+        # Single node: no Erlang distribution (no epmd, no node naming).
+        # The Nix build strips releases/COOKIE; with distribution off the
+        # cookie is never used for auth, but set a dummy so any code path
+        # reading it (e.g. :erlang.get_cookie/0) gets a stable value.
+        # NOT a secret — distribution is off, so it never leaves the node
+        # (there are no node connections). If clustering is ever needed,
+        # replace both with RELEASE_DISTRIBUTION=name + a real secret cookie.
+        RELEASE_DISTRIBUTION = "none";
+        RELEASE_COOKIE = "narwal-no-distribution";
       } // (lib.optionalAttrs (cfg.channel != null) {
         NARWAL_CHANNEL = cfg.channel;
       });
