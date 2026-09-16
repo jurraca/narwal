@@ -39,6 +39,10 @@
         mixNixDeps = pkgs.callPackages ./deps.nix { };
 
         buildInputs = [ pkgs.openssl ];
+
+        meta = {
+          mainProgram = "narwal";
+        };
       };
 
       narwal = self.packages.${system}.default;
