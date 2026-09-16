@@ -344,7 +344,7 @@ let
 
       mint =
         let
-          version = "1.9.3";
+          version = "1.10.0";
           drv = buildMix {
             inherit version;
             name = "mint";
@@ -353,7 +353,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "mint";
-              sha256 = "5f7c9342480c069dbbc4eeac3490303c9e01870ff01a7f1d29b6107054fc1e74";
+              sha256 = "8b16fb72aaa7531d206a1f05e4cc85509ba531ccec7a17a22736c9c95cbb24d1";
             };
 
             beamDeps = [
@@ -455,8 +455,8 @@ let
             };
 
             beamDeps = [
-              bechamel
               lib_secp256k1
+              bechamel
             ];
           };
         in
@@ -473,38 +473,14 @@ let
             src = fetchFromGitHub {
               owner = "jurraca";
               repo = "nostr_ex";
-              rev = "50ec56a18948a34b38ae36b8323e9323950362fe";
-              hash = "sha256-1B8LfA/JBGWRHRXiAxbmnBfs5SAOV6IoaXt9xN1qm8c=";
+              rev = "84ff4cc042961c0c8c671d0b47255872fddd4f9e";
+              hash = "sha256-WdN1KnjLSO2j/OZdAIItMPJWBKcWNpuOX00PG5ATdFQ=";
             };
 
             beamDeps = [
-              nostr_lib
+              nostr_core
               mint_web_socket
               req
-            ];
-          };
-        in
-        drv;
-
-      nostr_lib =
-        let
-          version = "0.2.0";
-          drv = buildMix {
-            inherit version;
-            name = "nostr_lib";
-            appConfigPath = ./config;
-
-            src = fetchHex {
-              inherit version;
-              pkg = "nostr_lib";
-              sha256 = "aacf61ae45a7554f055189ac1acf081a2862f950299febcac50f782bad07dda4";
-            };
-
-            beamDeps = [
-              bechamel
-              lib_secp256k1
-              req
-              scrypt
             ];
           };
         in
@@ -552,7 +528,7 @@ let
 
       req =
         let
-          version = "0.7.2";
+          version = "0.7.4";
           drv = buildMix {
             inherit version;
             name = "req";
@@ -561,7 +537,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "req";
-              sha256 = "c9cdfa276b05d8db2a27fda5d233e6858b764d47189d76cbb186e130a871ae0b";
+              sha256 = "4b192d63253e8dcc6221ef992ea9ebef7d3555166e8423aa5b553e86bc3c69a2";
             };
 
             beamDeps = [
@@ -570,22 +546,6 @@ let
               mime
               plug
             ];
-          };
-        in
-        drv;
-
-      scrypt =
-        let
-          version = "2.1.3";
-          drv = buildRebar3 {
-            inherit version;
-            name = "scrypt";
-
-            src = fetchHex {
-              inherit version;
-              pkg = "scrypt";
-              sha256 = "126a8b85cae99bc4b87fbba7c3f156bea867dc966ec2bc37e6dbda6007d3ba3b";
-            };
           };
         in
         drv;
