@@ -38,7 +38,7 @@
 
         mixNixDeps = pkgs.callPackages ./deps.nix { };
 
-        buildInputs = [ pkgs.openssl pkgs.autoreconfHook ];
+        buildInputs = [ pkgs.openssl ];
       };
 
       narwal = self.packages.${system}.default;
