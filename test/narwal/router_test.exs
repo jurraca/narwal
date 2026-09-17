@@ -25,11 +25,11 @@ defmodule Narwal.RouterTest do
     assert conn.status == 404
   end
 
-  test "GET /nar/<valid-hash> returns 503 when no blossom servers configured" do
+  test "GET /nar/<valid-hash> returns 404 when no blossom servers configured" do
     hash = "0f3q75ym3390abjlmrz9kx07160xyrs9b1c32zy5wsldc0vqkgwz"
     conn = conn(:get, "/nar/#{hash}.nar.xz")
     conn = Narwal.Router.call(conn, [])
-    assert conn.status == 503
+    assert conn.status == 404
   end
 
   test "GET /nar/<valid-hash> 404s when no blossom server has the blob" do

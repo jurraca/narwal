@@ -94,7 +94,12 @@ defmodule Narwal.Router do
         |> send_resp(200, bytes)
 
       {:error, :not_resolved} ->
-        send_resp(conn, 503, "Root not yet resolved")
+        # Deliberately 404, not 503: nix treats 404 as "not in this cache"
+        # and falls through to the next substituter, while 503 aborts the
+        # fetch. An unindexed name is a miss whether the index is still
+        # warming up or fully built — nix re-queries on later builds.
+        Stats.incr(:narinfo_404s)
+        send_resp(conn, 404, "Not Found")
 
       {:error, :not_found} ->
         Stats.incr(:narinfo_404s)
@@ -225,7 +230,11 @@ defmodule Narwal.Router do
         send_resp(conn, 404, "Not Found")
 
       true ->
-        send_resp(conn, 503, "Root not yet resolved")
+        # Same reasoning as narinfo above: no known blossom servers means
+        # we cannot resolve this NAR, which is a miss (404), not a failure.
+        # Nix falls through to the next substituter on 404.
+        Stats.incr(:nar_404s)
+        send_resp(conn, 404, "Not Found")
 
       _other ->
         send_resp(conn, 400, "Invalid NAR hash")
