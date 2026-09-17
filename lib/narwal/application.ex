@@ -29,7 +29,6 @@ defmodule Narwal.Application do
   defp narwal_config do
     %{
       npubs: Application.get_env(:narwal, :publisher_npubs, []),
-      channel: Application.get_env(:narwal, :channel),
       relays: Application.get_env(:narwal, :relays, []),
       blossom_servers: Application.get_env(:narwal, :blossom_servers, []),
       priority: Application.get_env(:narwal, :priority, 30)

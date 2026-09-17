@@ -129,7 +129,7 @@ defmodule Narwal.RootResolver do
 
   @impl true
   def handle_info(:connect, state) do
-    %{npubs: npubs, relays: relays, channel: channel} = state.config
+    %{npubs: npubs, relays: relays} = state.config
 
     Enum.each(relays, fn relay_url ->
       case NostrEx.connect(relay_url) do
@@ -144,10 +144,10 @@ defmodule Narwal.RootResolver do
     subs =
       Enum.reduce(npubs, %{}, fn npub, acc ->
         with {:ok, "npub", hex_id} <- NostrCore.Bech32.decode(npub),
-             filter = build_filter(hex_id, channel),
+             filter = build_filter(hex_id),
              {:ok, sub} <- NostrEx.create_sub(filter) do
           NostrEx.send_sub(sub)
-          Logger.info("RootResolver: subscribed for npub=#{npub}, kind=#{inspect(filter[:kinds])}")
+          Logger.info("RootResolver: subscribed for npub=#{npub}, kinds=#{inspect(filter[:kinds])}")
           Map.put(acc, sub.id, hex_id)
         else
           {:error, reason} ->
@@ -172,18 +172,25 @@ defmodule Narwal.RootResolver do
         {:noreply, state}
 
       pubkey_hex ->
-        case process_event(event, state.config) do
-          {:ok, root} ->
-            if should_replace?(state.roots[pubkey_hex], root, event.id) do
-              Logger.info("RootResolver: resolved root for #{pubkey_hex}: hash=#{root.root_hash_hex}, event=#{event.id}")
-              {:noreply, accept_root(state, pubkey_hex, root)}
-            else
-              Logger.debug("RootResolver: ignored older event #{event.id} for #{pubkey_hex}")
-              {:noreply, state}
+        case classify_event(event, pubkey_hex) do
+          {:ok, key, channel} ->
+            case extract_root(event) do
+              {:ok, root} ->
+                if should_replace?(state.roots[key], root, event.id) do
+                  Logger.info("RootResolver: resolved root for #{pubkey_hex} channel=#{channel_label(channel)}: hash=#{root.root_hash_hex}, event=#{event.id}")
+                  {:noreply, accept_root(state, key, root)}
+                else
+                  Logger.debug("RootResolver: ignored older event #{event.id} for #{pubkey_hex} channel=#{channel_label(channel)}")
+                  {:noreply, state}
+                end
+
+              {:error, reason} ->
+                Logger.warning("RootResolver: rejected event #{event.id}: #{inspect(reason)}")
+                {:noreply, state}
             end
 
           {:error, reason} ->
-            Logger.warning("RootResolver: rejected event #{inspect(event.id)}: #{inspect(reason)}")
+            Logger.warning("RootResolver: ignored event #{event_id(event)}: #{inspect(reason)}")
             {:noreply, state}
         end
     end
@@ -204,17 +211,17 @@ defmodule Narwal.RootResolver do
         # Result from a cancelled/superseded build — discard.
         {:noreply, state}
 
-      {pubkey_hex, state} ->
-        {:noreply, commit_index(state, pubkey_hex, index)}
+      {key, state} ->
+        {:noreply, commit_index(state, key, index)}
     end
   end
 
   def handle_info({ref, {:error, reason}}, state) when is_reference(ref) do
     Process.demonitor(ref, [:flush])
-    {pubkey_hex, state} = pop_build_by_ref(state, ref)
+    {key, state} = pop_build_by_ref(state, ref)
 
-    if pubkey_hex do
-      Logger.warning("RootResolver: index build failed for #{pubkey_hex}: #{inspect(reason)}")
+    if key do
+      Logger.warning("RootResolver: index build failed for #{inspect(key)}: #{inspect(reason)}")
     end
 
     {:noreply, state}
@@ -225,8 +232,8 @@ defmodule Narwal.RootResolver do
       {nil, state} ->
         {:noreply, state}
 
-      {pubkey_hex, state} ->
-        Logger.warning("RootResolver: index build crashed for #{pubkey_hex}: #{inspect(reason)}")
+      {key, state} ->
+        Logger.warning("RootResolver: index build crashed for #{inspect(key)}: #{inspect(reason)}")
         {:noreply, state}
     end
   end
@@ -246,17 +253,49 @@ defmodule Narwal.RootResolver do
 
   ## Private functions
 
-  defp build_filter(hex_id, nil) do
-    [authors: [hex_id], kinds: [17091]]
+  # One subscription per trusted publisher, both root kinds, no channel
+  # constraint: the gate is the npub, so a trusted publisher may use any
+  # channel — default-cache 17091 roots and named 37091 channels alike.
+  defp build_filter(hex_id) do
+    [authors: [hex_id], kinds: [17091, 37091]]
   end
 
-  defp build_filter(hex_id, channel) do
-    [authors: [hex_id], kinds: [37091], "#d": [channel]]
+  # The gate is npubs: only events authored by the subscribed (trusted)
+  # publisher are accepted, on whatever channel they publish. Returns the
+  # {pubkey, channel} key this root is tracked under.
+  defp classify_event(event, pubkey_hex) do
+    case Map.get(event, :pubkey) do
+      ^pubkey_hex ->
+        case channel_of(event) do
+          {:ok, channel} -> {:ok, {pubkey_hex, channel}, channel}
+          {:error, reason} -> {:error, reason}
+        end
+
+      other ->
+        {:error, {:untrusted_author, other}}
+    end
   end
 
-  defp process_event(event, _config) do
-    extract_root(event)
+  # kind 17091: default cache. kind 37091: named channel from the d-tag
+  # (parameterized replaceable events require one). Anything else is
+  # rejected — subscriptions only ask for these two kinds.
+  defp channel_of(%{kind: 17091}), do: {:ok, :default}
+
+  defp channel_of(%{kind: 37091, tags: tags}) do
+    case find_tag(tags, "d") do
+      {:ok, d} when is_binary(d) and d != "" -> {:ok, d}
+      _ -> {:error, :missing_d_tag}
+    end
   end
+
+  defp channel_of(%{kind: kind}), do: {:error, {:unexpected_kind, kind}}
+  defp channel_of(_), do: {:error, :missing_kind}
+
+  defp channel_label(:default), do: "default"
+  defp channel_label(channel), do: channel
+
+  defp event_id(%{id: id}), do: id
+  defp event_id(_), do: "unknown"
 
   defp extract_root(%{tags: tags, id: event_id} = event) do
     with {:ok, htree_uri} <- find_tag(tags, "htree"),
@@ -285,12 +324,14 @@ defmodule Narwal.RootResolver do
   ## Async index build
 
   # Publish the new root immediately, then build the narinfo index in a
-  # Task.Supervisor task. Any in-flight build for this publisher is cancelled
-  # first — its result would be stale.
-  defp accept_root(state, pubkey_hex, root) do
-    state = cancel_build(state, pubkey_hex)
+  # Task.Supervisor task. Any in-flight build for this publisher+channel is
+  # cancelled first — its result would be stale. Roots are tracked per
+  # {pubkey, channel} so one publisher's channels never clobber each other;
+  # the narinfo entries themselves stay merged in the shared index.
+  defp accept_root(state, {pubkey, channel} = key, root) do
+    state = cancel_build(state, key)
 
-    :ets.insert(state.table, {{:root, pubkey_hex}, root})
+    :ets.insert(state.table, {{:root, pubkey, channel}, root})
     update_blossom_servers(state.table)
 
     task =
@@ -300,13 +341,13 @@ defmodule Narwal.RootResolver do
 
     %{
       state
-      | roots: Map.put(state.roots, pubkey_hex, root),
-        building: Map.put(state.building, pubkey_hex, task)
+      | roots: Map.put(state.roots, key, root),
+        building: Map.put(state.building, key, task)
     }
   end
 
-  defp cancel_build(state, pubkey_hex) do
-    case Map.pop(state.building, pubkey_hex) do
+  defp cancel_build(state, key) do
+    case Map.pop(state.building, key) do
       {nil, _building} ->
         state
 
@@ -318,36 +359,36 @@ defmodule Narwal.RootResolver do
   end
 
   defp pop_build_by_ref(state, ref) do
-    case Enum.find(state.building, fn {_pubkey, task} -> task.ref == ref end) do
+    case Enum.find(state.building, fn {_key, task} -> task.ref == ref end) do
       nil ->
         {nil, state}
 
-      {pubkey_hex, _task} ->
-        {pubkey_hex, %{state | building: Map.delete(state.building, pubkey_hex)}}
+      {key, _task} ->
+        {key, %{state | building: Map.delete(state.building, key)}}
     end
   end
 
   # Commit a completed build. Pure ETS operations — fast even for large
   # trees. The old index stays live until this point.
-  defp commit_index(state, pubkey_hex, index) do
+  defp commit_index(state, {pubkey, channel} = key, index) do
     %{link_count: link_count, total_bytes: total_bytes, entries: entries} = index
 
-    clear_narinfo_index(state.table, pubkey_hex)
+    clear_narinfo_index(state.table, key)
 
     if entries != [] do
       :ets.insert(state.table, entries)
     end
 
     narinfo_keys = Enum.map(entries, &elem(&1, 0))
-    :ets.insert(state.table, {{:narinfo_keys, pubkey_hex}, narinfo_keys})
+    :ets.insert(state.table, {{:narinfo_keys, pubkey, channel}, narinfo_keys})
 
     updated_root =
       state.roots
-      |> Map.fetch!(pubkey_hex)
+      |> Map.fetch!(key)
       |> Map.merge(%{link_count: link_count, total_bytes: total_bytes})
 
-    :ets.insert(state.table, {{:root, pubkey_hex}, updated_root})
-    %{state | roots: Map.put(state.roots, pubkey_hex, updated_root)}
+    :ets.insert(state.table, {{:root, pubkey, channel}, updated_root})
+    %{state | roots: Map.put(state.roots, key, updated_root)}
   end
 
   # Runs in the build task: fetch the root manifest and walk the tree,
@@ -443,7 +484,7 @@ defmodule Narwal.RootResolver do
 
   defp update_blossom_servers(table) do
     servers =
-      :ets.match(table, {{:root, :_}, :"$1"})
+      :ets.match(table, {{:root, :_, :_}, :"$1"})
       |> Enum.map(&hd/1)
       |> Enum.flat_map(& &1.blossom_servers)
       |> Enum.uniq()
@@ -492,11 +533,11 @@ defmodule Narwal.RootResolver do
     end
   end
 
-  defp clear_narinfo_index(table, pubkey_hex) do
-    case :ets.lookup(table, {:narinfo_keys, pubkey_hex}) do
+  defp clear_narinfo_index(table, {pubkey, channel}) do
+    case :ets.lookup(table, {:narinfo_keys, pubkey, channel}) do
       [{_, keys}] ->
         Enum.each(keys, fn key -> :ets.delete(table, key) end)
-        :ets.delete(table, {:narinfo_keys, pubkey_hex})
+        :ets.delete(table, {:narinfo_keys, pubkey, channel})
 
       [] ->
         :ok

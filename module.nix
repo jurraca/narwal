@@ -54,13 +54,7 @@ in {
       type = lib.types.listOf lib.types.str;
       default = [];
       example = [ "npub1..." ];
-      description = "Nostr public keys of cache publishers to index.";
-    };
-
-    channel = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "Named cache channel (d-tag). null = default cache (kind 17091).";
+      description = "Nostr public keys of trusted cache publishers. The gate is the npub: every channel (default 17091 roots and named 37091 channels) from these publishers is indexed.";
     };
 
     relays = lib.mkOption {
@@ -106,9 +100,7 @@ in {
         # replace both with RELEASE_DISTRIBUTION=name + a real secret cookie.
         RELEASE_DISTRIBUTION = "none";
         RELEASE_COOKIE = "narwal-no-distribution";
-      } // (lib.optionalAttrs (cfg.channel != null) {
-        NARWAL_CHANNEL = cfg.channel;
-      });
+      };
 
       serviceConfig = {
         ExecStart = "${lib.getExe cfg.package} start";

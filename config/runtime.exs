@@ -34,8 +34,6 @@ npubs =
       plural |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
   end
 
-channel = System.get_env("NARWAL_CHANNEL")
-
 relays =
   System.get_env("NARWAL_RELAYS", "")
   |> String.split(",", trim: true)
@@ -52,7 +50,6 @@ config :narwal,
   port: port,
   http_enabled: http_enabled,
   publisher_npubs: npubs,
-  channel: channel,
   relays: relays,
   blossom_servers: blossom_servers
 

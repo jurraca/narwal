@@ -120,7 +120,7 @@ defmodule Narwal.Dashboard do
           <h2>Blossom Servers (#{length(blossom_servers)})</h2>
     #{render_list(blossom_servers)}
 
-          <h2>Publishers (#{length(roots)})</h2>
+          <h2>Caches (#{length(roots)})</h2>
     #{render_publishers(roots)}
 
           <h2>Relays</h2>
@@ -343,7 +343,7 @@ defmodule Narwal.Dashboard do
 
   defp render_publishers(roots) do
     if roots == [] do
-      "      <span class=\"dim\">No publishers resolved</span>"
+      "      <span class=\"dim\">No caches resolved</span>"
     else
       roots
       |> Enum.map(fn root ->
@@ -351,6 +351,7 @@ defmodule Narwal.Dashboard do
           "        <td class=\"hash\">#{short_hex(root.pubkey)}</td>\n" <>
           "        <td>\n" <>
           "          root=<span class=\"hash\">#{short_hex(root.root_hash_hex)}</span>\n" <>
+          "          channel=#{channel_label(root.channel)} " <>
           "          #{length(root.nix_sig_keys)} sig keys\n" <>
           "        </td>\n" <>
           "      </tr>"
@@ -359,10 +360,13 @@ defmodule Narwal.Dashboard do
     end
   end
 
+  defp channel_label(:default), do: "default"
+  defp channel_label(channel), do: channel
+
   defp get_roots do
-    case :ets.match(:narwal_roots, {{:root, :"$1"}, :"$2"}) do
+    case :ets.match(:narwal_roots, {{:root, :"$1", :"$2"}, :"$3"}) do
       [] -> []
-      rows -> Enum.map(rows, fn [pubkey, root] -> Map.put(root, :pubkey, pubkey) end)
+      rows -> Enum.map(rows, fn [pubkey, channel, root] -> root |> Map.put(:pubkey, pubkey) |> Map.put(:channel, channel) end)
     end
   rescue
     ArgumentError -> []
@@ -421,7 +425,7 @@ defmodule Narwal.Dashboard do
     roots = get_roots()
 
     if roots == [] do
-      "<div class=\"roots-empty\">No publishers resolved</div>"
+      "<div class=\"roots-empty\">No caches resolved</div>"
     else
       roots
       |> Enum.map(&render_root/1)
@@ -445,7 +449,7 @@ defmodule Narwal.Dashboard do
     <div class="root-section">
       <div class="root-header">
         <div class="root-npub">#{escape(npub)}</div>
-        <div class="root-pubkey">#{short_hex(root.pubkey)}</div>
+        <div class="root-pubkey">#{short_hex(root.pubkey)} · #{channel_label(root.channel)}</div>
         <div class="root-hash-label">hashtree root</div>
         <div class="root-hash-full">#{root.root_hash_hex}</div>
       </div>
