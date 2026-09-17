@@ -145,8 +145,12 @@ defmodule Narwal.RootResolver do
       Enum.reduce(npubs, %{}, fn npub, acc ->
         with {:ok, "npub", hex_id} <- NostrCore.Bech32.decode(npub),
              filter = build_filter(hex_id),
-             {:ok, sub} <- NostrEx.create_sub(filter) do
-          NostrEx.send_sub(sub)
+             {:ok, sub} <- NostrEx.create_sub(filter),
+             # Register this process for the sub's messages — without
+             # listen/1, incoming events are dispatched to zero listeners
+             # and silently dropped (the socket itself stays healthy).
+             :ok <- NostrEx.listen(sub),
+             {:ok, _sub_id, _failures} <- NostrEx.send_sub(sub) do
           Logger.info("RootResolver: subscribed for npub=#{npub}, kinds=#{inspect(filter[:kinds])}")
           Map.put(acc, sub.id, hex_id)
         else
