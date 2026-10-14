@@ -27,12 +27,12 @@ defmodule Narwal.MixProject do
   defp deps do
     [
       {:bandit, "~> 1.12.5"},
-      {:plug, "~> 1.16"},
+      {:plug, "~> 1.20.3"},
       {:req, "~> 0.7.2", override: true},
       {:msgpax, "~> 2.0"},
       {:bechamel, "~> 1.1"},
-      {:nostr_ex, github: "jurraca/nostr_ex"},
-      {:nostr_core, github: "jurraca/nostr_core"},
+      {:nostr_ex, "~> 0.3.0"},
+      {:nostr_core, "~> 0.1.0"},
       # dev deps
       {:deps_nix, "~> 3.1.1", only: :dev}
     ]

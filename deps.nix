@@ -447,16 +447,15 @@ let
             name = "nostr_core";
             appConfigPath = ./config;
 
-            src = fetchFromGitHub {
-              owner = "jurraca";
-              repo = "nostr_core";
-              rev = "8fc8ff547f040d131299cc881a46d210a1a167c4";
-              hash = "sha256-Z7W5PDYgJBIVfmuhRpRU5gp8IdK/Yty7yui1LJ73wkk=";
+            src = fetchHex {
+              inherit version;
+              pkg = "nostr_core";
+              sha256 = "98a6857380a272c42f0e9090424949e0ea180a3e589646d69d5f91b5737ac283";
             };
 
             beamDeps = [
-              lib_secp256k1
               bechamel
+              lib_secp256k1
             ];
           };
         in
@@ -464,22 +463,21 @@ let
 
       nostr_ex =
         let
-          version = "0.2.3";
+          version = "0.3.0";
           drv = buildMix {
             inherit version;
             name = "nostr_ex";
             appConfigPath = ./config;
 
-            src = fetchFromGitHub {
-              owner = "jurraca";
-              repo = "nostr_ex";
-              rev = "84ff4cc042961c0c8c671d0b47255872fddd4f9e";
-              hash = "sha256-WdN1KnjLSO2j/OZdAIItMPJWBKcWNpuOX00PG5ATdFQ=";
+            src = fetchHex {
+              inherit version;
+              pkg = "nostr_ex";
+              sha256 = "e9bac439759dde47513194b10ffda4ec4a3afc007389ed58bcd16526f763d7b4";
             };
 
             beamDeps = [
-              nostr_core
               mint_web_socket
+              nostr_core
               req
             ];
           };
