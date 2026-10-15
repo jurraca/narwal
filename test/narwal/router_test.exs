@@ -48,4 +48,78 @@ defmodule Narwal.RouterTest do
   test "HTTP server is not started in test env" do
     refute Application.get_env(:narwal, :http_enabled, true)
   end
+
+  describe "home page" do
+    @pubkey "aa" <> String.duplicate("bb", 31)
+    @hashpart "0c2a5hhq7q6wq0qry4l7g55dmvx7v8i3"
+
+    defp put_root_and_pkgs(channel, pkgs) do
+      root = %{
+        root_hash_hex: String.duplicate("ab", 32),
+        blossom_servers: [],
+        nix_sig_keys: [],
+        created_at: System.os_time(:second),
+        event_id: "test",
+        link_count: length(pkgs) + 1,
+        total_bytes: 100,
+        pkg_count: length(pkgs)
+      }
+
+      :ets.insert(:narwal_roots, {{:root, @pubkey, channel}, root})
+      :ets.insert(:narwal_roots, {{:pkgs, @pubkey, channel}, pkgs})
+
+      on_exit(fn ->
+        :ets.delete(:narwal_roots, {:root, @pubkey, channel})
+        :ets.delete(:narwal_roots, {:pkgs, @pubkey, channel})
+      end)
+    end
+
+    test "GET / lists caches" do
+      put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
+
+      conn = conn(:get, "/")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "Narwal"
+      assert conn.resp_body =~ "1 packages"
+    end
+
+    test "GET /cache/<pubkey>/<channel> lists packages" do
+      put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
+
+      conn = conn(:get, "/cache/#{@pubkey}/default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      assert conn.resp_body =~ @hashpart
+    end
+
+    test "GET /cache/<pubkey>/<channel> filters by q" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512},
+        %{
+          hashpart: "1f3q75ym3390abjlmrz9kx07160xyrs9b1c32zy5wsldc0vqkgwz",
+          name: "zstd-1.5.6",
+          size: 256
+        }
+      ])
+
+      conn = conn(:get, "/cache/#{@pubkey}/default?q=hello")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      refute conn.resp_body =~ "zstd-1.5.6"
+    end
+
+    test "GET /cache/<pubkey>/<channel> for unknown cache says so" do
+      conn = conn(:get, "/cache/#{@pubkey}/default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "Unknown cache"
+    end
+  end
 end

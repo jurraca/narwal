@@ -3,6 +3,8 @@ defmodule Narwal.Router do
   Plug router presenting the Nix binary cache HTTP API.
 
   Endpoints:
+  - GET / — public home page (cache directory)
+  - GET /cache/<pubkey>/<channel> — package listing for one cache
   - GET /nix-cache-info — static text
   - GET /<hashpart>.narinfo — resolve via Nostr root + hashtree + Blossom
   - HEAD /<hashpart>.narinfo — existence check
@@ -23,7 +25,7 @@ defmodule Narwal.Router do
 
   require Logger
 
-  alias Narwal.{Blossom, Dashboard, Manifest, Nix32, RootResolver, Stats, TreeCache}
+  alias Narwal.{Blossom, Dashboard, HomePage, Manifest, Nix32, RootResolver, Stats, TreeCache}
 
   plug(:maybe_log)
   plug(:cors)
@@ -32,7 +34,17 @@ defmodule Narwal.Router do
   plug(:dispatch)
 
   get "/" do
-    send_resp(conn, 200, "narwal")
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, HomePage.render_page())
+  end
+
+  get "/cache/:pubkey/:channel" do
+    conn = fetch_query_params(conn)
+
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, HomePage.render_cache_page(pubkey, channel, conn.query_params))
   end
 
   get "/dashboard" do
@@ -55,6 +67,7 @@ defmodule Narwal.Router do
 
   get "/nix-cache-info" do
     body = build_cache_info()
+
     conn
     |> put_resp_content_type("text/plain")
     |> send_resp(200, body)
@@ -149,6 +162,7 @@ defmodule Narwal.Router do
           with {:ok, node} <- get_tree_node(root.root_hash_hex, root.blossom_servers),
                {:ok, link} <- find_link_recursive(node, name, root.blossom_servers, MapSet.new()) do
             hash_hex = Base.encode16(link.h, case: :lower)
+
             case get_narinfo_bytes(hash_hex, root.blossom_servers) do
               {:ok, _} = ok -> ok
               {:error, _} -> nil

@@ -68,6 +68,17 @@ defmodule Narwal.TreeCache do
     ArgumentError -> true
   end
 
+  @doc """
+  Insert a narinfo blob into the cache directly (no GenServer call).
+  Used by RootResolver's enrichment pass and tests.
+  """
+  @spec insert_narinfo(String.t(), binary()) :: true
+  def insert_narinfo(hex_hash, bytes) do
+    :ets.insert(@table, {{:narinfo, hex_hash}, bytes})
+  rescue
+    ArgumentError -> true
+  end
+
   ## Public API — fetch in caller process (cold path, no GenServer call)
 
   @doc """

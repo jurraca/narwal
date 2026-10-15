@@ -32,6 +32,7 @@ defmodule Narwal.RootResolver do
 
   @table :narwal_roots
   @refresh_ttl :timer.minutes(5)
+  @enrich_concurrency 8
 
   ## Public API (ETS direct reads — no GenServer call)
 
@@ -118,7 +119,7 @@ defmodule Narwal.RootResolver do
 
     npubs = config[:npubs] || []
 
-    if npubs != [] and config[:relays] && config[:relays] != [] do
+    if (npubs != [] and config[:relays]) && config[:relays] != [] do
       send(self(), :connect)
     else
       Logger.info("RootResolver: no publisher configured, running in passive mode")
@@ -151,7 +152,10 @@ defmodule Narwal.RootResolver do
              # and silently dropped (the socket itself stays healthy).
              :ok <- NostrEx.listen(sub),
              {:ok, _sub_id, _failures} <- NostrEx.send_sub(sub) do
-          Logger.info("RootResolver: subscribed for npub=#{npub}, kinds=#{inspect(filter[:kinds])}")
+          Logger.info(
+            "RootResolver: subscribed for npub=#{npub}, kinds=#{inspect(filter[:kinds])}"
+          )
+
           Map.put(acc, sub.id, hex_id)
         else
           {:error, reason} ->
@@ -181,10 +185,16 @@ defmodule Narwal.RootResolver do
             case extract_root(event) do
               {:ok, root} ->
                 if should_replace?(state.roots[key], root, event.id) do
-                  Logger.info("RootResolver: resolved root for #{pubkey_hex} channel=#{channel_label(channel)}: hash=#{root.root_hash_hex}, event=#{event.id}")
+                  Logger.info(
+                    "RootResolver: resolved root for #{pubkey_hex} channel=#{channel_label(channel)}: hash=#{root.root_hash_hex}, event=#{event.id}"
+                  )
+
                   {:noreply, accept_root(state, key, root)}
                 else
-                  Logger.debug("RootResolver: ignored older event #{event.id} for #{pubkey_hex} channel=#{channel_label(channel)}")
+                  Logger.debug(
+                    "RootResolver: ignored older event #{event.id} for #{pubkey_hex} channel=#{channel_label(channel)}"
+                  )
+
                   {:noreply, state}
                 end
 
@@ -237,7 +247,10 @@ defmodule Narwal.RootResolver do
         {:noreply, state}
 
       {key, state} ->
-        Logger.warning("RootResolver: index build crashed for #{inspect(key)}: #{inspect(reason)}")
+        Logger.warning(
+          "RootResolver: index build crashed for #{inspect(key)}: #{inspect(reason)}"
+        )
+
         {:noreply, state}
     end
   end
@@ -375,7 +388,7 @@ defmodule Narwal.RootResolver do
   # Commit a completed build. Pure ETS operations — fast even for large
   # trees. The old index stays live until this point.
   defp commit_index(state, {pubkey, channel} = key, index) do
-    %{link_count: link_count, total_bytes: total_bytes, entries: entries} = index
+    %{link_count: link_count, total_bytes: total_bytes, entries: entries, pkgs: pkgs} = index
 
     clear_narinfo_index(state.table, key)
 
@@ -385,11 +398,12 @@ defmodule Narwal.RootResolver do
 
     narinfo_keys = Enum.map(entries, &elem(&1, 0))
     :ets.insert(state.table, {{:narinfo_keys, pubkey, channel}, narinfo_keys})
+    :ets.insert(state.table, {{:pkgs, pubkey, channel}, pkgs})
 
     updated_root =
       state.roots
       |> Map.fetch!(key)
-      |> Map.merge(%{link_count: link_count, total_bytes: total_bytes})
+      |> Map.merge(%{link_count: link_count, total_bytes: total_bytes, pkg_count: length(pkgs)})
 
     :ets.insert(state.table, {{:root, pubkey, channel}, updated_root})
     %{state | roots: Map.put(state.roots, key, updated_root)}
@@ -406,11 +420,18 @@ defmodule Narwal.RootResolver do
           {:ok, node} ->
             Narwal.TreeCache.insert_node(root.root_hash_hex, node)
 
-            {link_count, total_bytes, entries} =
+            {link_count, total_bytes, entries, leaves} =
               walk_dir_collect(root.root_hash_hex, root.blossom_servers, MapSet.new())
 
-            Logger.info("RootResolver: built index with #{link_count} entries, #{total_bytes} bytes")
-            {:ok, %{link_count: link_count, total_bytes: total_bytes, entries: entries}}
+            pkgs = enrich_leaves(leaves)
+
+            Logger.info(
+              "RootResolver: built index with #{link_count} entries, #{total_bytes} bytes, " <>
+                "#{length(pkgs)} packages"
+            )
+
+            {:ok,
+             %{link_count: link_count, total_bytes: total_bytes, entries: entries, pkgs: pkgs}}
 
           {:error, reason} ->
             {:error, {:manifest_decode_failed, reason}}
@@ -421,12 +442,65 @@ defmodule Narwal.RootResolver do
     end
   end
 
+  # Fetch and parse each leaf's narinfo blob to extract the package name —
+  # the tree itself only carries hashparts. Narinfo blobs are tiny and
+  # content-addressed, so after the first build TreeCache serves them from
+  # ETS and Blossom is only hit for newly published packages.
+  #
+  # A leaf whose narinfo cannot be fetched or parsed stays listed under
+  # its hashpart (name: nil); auxiliary entries like nix-cache-info are
+  # dropped from the package list.
+  @doc false
+  @spec enrich_leaves([map()]) :: [map()]
+  def enrich_leaves(leaves) do
+    leaves
+    |> Task.async_stream(&enrich_leaf/1,
+      concurrency: @enrich_concurrency,
+      timeout: :infinity,
+      ordered: false
+    )
+    |> Enum.reduce([], fn
+      {:ok, %{name: _} = pkg}, acc -> [pkg | acc]
+      {:ok, :skip}, acc -> acc
+    end)
+    |> Enum.sort_by(&(&1.name || &1.hashpart))
+  end
+
+  defp enrich_leaf(leaf) do
+    case Narwal.TreeCache.fetch_narinfo(leaf.hash_hex, leaf.servers) do
+      {:ok, narinfo} ->
+        %{store_path: store_path, file_size: file_size} = Narwal.Narinfo.parse(narinfo)
+
+        case store_path && Narwal.Narinfo.split_name(Path.basename(store_path)) do
+          {:ok, hashpart, name} -> %{hashpart: hashpart, name: name, size: file_size}
+          _ -> unknown_pkg(leaf)
+        end
+
+      {:error, reason} ->
+        Logger.warning("RootResolver: narinfo fetch failed for #{leaf.name}: #{inspect(reason)}")
+        unknown_pkg(leaf)
+    end
+  end
+
+  # Unknown-name fallback: a "<hashpart>.narinfo" entry whose blob could not
+  # be fetched or parsed. Non-".narinfo" entries (nix-cache-info) are not
+  # packages and are skipped.
+  defp unknown_pkg(leaf) do
+    case String.replace_suffix(leaf.name, ".narinfo", "") do
+      hashpart when hashpart != leaf.name and hashpart != "" ->
+        %{hashpart: hashpart, name: nil, size: nil}
+
+      _ ->
+        :skip
+    end
+  end
+
   @doc false
   @spec walk_dir_collect(String.t(), [String.t()], MapSet.t()) ::
-          {non_neg_integer(), non_neg_integer(), [tuple()]}
+          {non_neg_integer(), non_neg_integer(), [tuple()], [map()]}
   def walk_dir_collect(hash_hex, servers, visited \\ MapSet.new()) do
     if MapSet.member?(visited, hash_hex) do
-      {0, 0, []}
+      {0, 0, [], []}
     else
       visited = MapSet.put(visited, hash_hex)
 
@@ -434,30 +508,39 @@ defmodule Narwal.RootResolver do
         {:ok, node} ->
           Narwal.TreeCache.insert_node(hash_hex, node)
 
-          Enum.reduce(node.l, {0, 0, []}, fn link, {count, bytes, entries} ->
+          Enum.reduce(node.l, {0, 0, [], []}, fn link, {count, bytes, entries, leaves} ->
             link_type = Map.get(link, :t, 0)
 
             if link_type == 2 do
               child_hash_hex = Base.encode16(link.h, case: :lower)
 
-              {child_count, child_bytes, child_entries} =
+              {child_count, child_bytes, child_entries, child_leaves} =
                 walk_dir_collect(child_hash_hex, servers, visited)
 
-              {count + child_count, bytes + child_bytes, entries ++ child_entries}
+              {count + child_count, bytes + child_bytes, entries ++ child_entries,
+               leaves ++ child_leaves}
             else
               # Skip links without a name — they are chunks, not narinfo entries.
               if is_binary(link.n) do
                 child_hash_hex = Base.encode16(link.h, case: :lower)
                 entry = {{:narinfo, link.n}, {child_hash_hex, servers}}
-                {count + 1, bytes + link.s, [entry | entries]}
+
+                leaf = %{
+                  name: link.n,
+                  hash_hex: child_hash_hex,
+                  size: link.s,
+                  servers: servers
+                }
+
+                {count + 1, bytes + link.s, [entry | entries], [leaf | leaves]}
               else
-                {count, bytes, entries}
+                {count, bytes, entries, leaves}
               end
             end
           end)
 
         {:error, _} ->
-          {0, 0, []}
+          {0, 0, [], []}
       end
     end
   end
@@ -528,8 +611,12 @@ defmodule Narwal.RootResolver do
     new_created_at = new_root.created_at
 
     cond do
-      new_created_at > existing_created_at -> true
-      new_created_at < existing_created_at -> false
+      new_created_at > existing_created_at ->
+        true
+
+      new_created_at < existing_created_at ->
+        false
+
       true ->
         existing_event_id = Map.get(existing_root, :event_id) || ""
         new_event_id = new_event_id || ""
@@ -538,6 +625,8 @@ defmodule Narwal.RootResolver do
   end
 
   defp clear_narinfo_index(table, {pubkey, channel}) do
+    :ets.delete(table, {:pkgs, pubkey, channel})
+
     case :ets.lookup(table, {:narinfo_keys, pubkey, channel}) do
       [{_, keys}] ->
         Enum.each(keys, fn key -> :ets.delete(table, key) end)
