@@ -2,8 +2,11 @@ defmodule NarwalTest do
   use ExUnit.Case, async: true
 
   test "nix32 decode known vectors" do
-    assert {:ok, bytes} = Narwal.Nix32.decode("0f3q75ym3390abjlmrz9kx07160xyrs9b1c32zy5wsldc0vqkgwz")
+    assert {:ok, bytes} =
+             Narwal.Nix32.decode("0f3q75ym3390abjlmrz9kx07160xyrs9b1c32zy5wsldc0vqkgwz")
+
     <<hash::binary-size(32), _::binary>> = bytes
+
     assert Base.encode16(hash, case: :lower) ==
              "9fbf8937608d6a5efc1783859574f61d9870409fe9e74ae552208d517d397838"
   end

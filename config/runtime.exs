@@ -55,11 +55,15 @@ config :narwal,
 
 # Startup validation
 if npubs != [] and relays == [] do
-  Logger.warning("NARWAL_PUBLISHER_NPUBS is set but NARWAL_RELAYS is empty — root events cannot be fetched")
+  Logger.warning(
+    "NARWAL_PUBLISHER_NPUBS is set but NARWAL_RELAYS is empty — root events cannot be fetched"
+  )
 end
 
 if npubs == [] and relays != [] do
-  Logger.warning("NARWAL_RELAYS is set but NARWAL_PUBLISHER_NPUBS is not — no publisher to subscribe to")
+  Logger.warning(
+    "NARWAL_RELAYS is set but NARWAL_PUBLISHER_NPUBS is not — no publisher to subscribe to"
+  )
 end
 
 if blossom_servers == [] and npubs != [] do

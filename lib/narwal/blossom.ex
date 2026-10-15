@@ -18,8 +18,12 @@ defmodule Narwal.Blossom do
   def fetch_blob(servers, hash_hex) when is_list(servers) and is_binary(hash_hex) do
     Enum.reduce_while(servers, {:error, :not_found}, fn server, _acc ->
       case fetch_from_server(server, hash_hex) do
-        {:ok, body} -> {:halt, {:ok, body}}
-        {:error, :not_found} -> {:cont, {:error, :not_found}}
+        {:ok, body} ->
+          {:halt, {:ok, body}}
+
+        {:error, :not_found} ->
+          {:cont, {:error, :not_found}}
+
         {:error, reason} ->
           Logger.warning("blossom fetch from #{server} failed: #{inspect(reason)}")
           {:cont, {:error, :not_found}}

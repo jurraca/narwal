@@ -205,6 +205,7 @@ defmodule Narwal.Dashboard do
       {"nodes", cache.nodes, "#a9b1d6"},
       {"narinfos", cache.narinfos, "#a9b1d6"}
     ]
+
     cache_xs = circle_positions(length(cache_nodes))
 
     # Layer 4: Requests
@@ -220,6 +221,7 @@ defmodule Narwal.Dashboard do
           []
         end
       )
+
     request_xs = circle_positions(length(request_items))
 
     connectors =
@@ -234,7 +236,9 @@ defmodule Narwal.Dashboard do
         render_layer_label(y3, "Cache") <>
         render_layer_label(y4, "Requests")
 
-    blossom_svg = render_nodes(blossom_items, blossom_xs, y1, "#7aa2f7", &short_host/1, blossom_count)
+    blossom_svg =
+      render_nodes(blossom_items, blossom_xs, y1, "#7aa2f7", &short_host/1, blossom_count)
+
     relay_svg = render_nodes(relay_items, relay_xs, y2, "#9ece6a", &short_host/1, relay_count)
     cache_svg = render_count_nodes(cache_nodes, cache_xs, y3)
     request_svg = render_count_nodes(request_items, request_xs, y4)
@@ -265,7 +269,9 @@ defmodule Narwal.Dashboard do
 
   defp render_connectors(y_top, y_bot, top_xs, _bot_xs) do
     top_bus = render_bus(top_xs, y_top)
-    vline = "<line x1=\"#{@svg_cx}\" y1=\"#{y_top + @svg_r}\" x2=\"#{@svg_cx}\" y2=\"#{y_bot - @svg_r}\" class=\"connector\" />"
+
+    vline =
+      "<line x1=\"#{@svg_cx}\" y1=\"#{y_top + @svg_r}\" x2=\"#{@svg_cx}\" y2=\"#{y_bot - @svg_r}\" class=\"connector\" />"
 
     top_bus <> vline
   end
@@ -291,7 +297,12 @@ defmodule Narwal.Dashboard do
       |> Enum.with_index()
       |> Enum.map(fn {{item, x}, idx} ->
         is_last = idx == length(items) - 1
-        label = if is_last and total_count > @max_nodes, do: "+#{total_count - @max_nodes}", else: label_fn.(item)
+
+        label =
+          if is_last and total_count > @max_nodes,
+            do: "+#{total_count - @max_nodes}",
+            else: label_fn.(item)
+
         render_single_node(x, y, color, "1", label)
       end)
       |> Enum.join("\n")
@@ -365,8 +376,13 @@ defmodule Narwal.Dashboard do
 
   defp get_roots do
     case :ets.match(:narwal_roots, {{:root, :"$1", :"$2"}, :"$3"}) do
-      [] -> []
-      rows -> Enum.map(rows, fn [pubkey, channel, root] -> root |> Map.put(:pubkey, pubkey) |> Map.put(:channel, channel) end)
+      [] ->
+        []
+
+      rows ->
+        Enum.map(rows, fn [pubkey, channel, root] ->
+          root |> Map.put(:pubkey, pubkey) |> Map.put(:channel, channel)
+        end)
     end
   rescue
     ArgumentError -> []

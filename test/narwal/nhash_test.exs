@@ -26,10 +26,10 @@ defmodule Narwal.NhashTest do
     test "decodes known NAR hash (coreutils 9.8)" do
       nhash = "nhash1qqsfl0ufxasg66j7lstc8pv4wnmpmxrsgz07ne62u4fzpr2305uhswq47q6cg"
 
-      expected = <<0x9F, 0xBF, 0x89, 0x37, 0x60, 0x8D, 0x6A, 0x5E,
-                   0xFC, 0x17, 0x83, 0x85, 0x95, 0x74, 0xF6, 0x1D,
-                   0x98, 0x70, 0x40, 0x9F, 0xE9, 0xE7, 0x4A, 0xE5,
-                   0x52, 0x20, 0x8D, 0x51, 0x7D, 0x39, 0x78, 0x38>>
+      expected =
+        <<0x9F, 0xBF, 0x89, 0x37, 0x60, 0x8D, 0x6A, 0x5E, 0xFC, 0x17, 0x83, 0x85, 0x95, 0x74,
+          0xF6, 0x1D, 0x98, 0x70, 0x40, 0x9F, 0xE9, 0xE7, 0x4A, 0xE5, 0x52, 0x20, 0x8D, 0x51,
+          0x7D, 0x39, 0x78, 0x38>>
 
       assert {:ok, result} = Nhash.decode(nhash)
       assert result.hash == expected
@@ -39,7 +39,8 @@ defmodule Narwal.NhashTest do
 
   describe "decode/1 with hash + key (encrypted content)" do
     test "decodes hash=0xAA and key=0xBB" do
-      nhash = "nhash1qqsqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp2s9yqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqtkjt8z6h"
+      nhash =
+        "nhash1qqsqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp2s9yqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqtkjt8z6h"
 
       assert {:ok, result} = Nhash.decode(nhash)
       assert result.hash == <<0xAA::size(256)>>
@@ -84,7 +85,8 @@ defmodule Narwal.NhashTest do
 
     test "returns error for wrong HRP" do
       # bech32 with HRP "bc" (bitcoin) instead of "nhash"
-      assert {:error, {:wrong_hrp, "bc"}} = Nhash.decode("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
+      assert {:error, {:wrong_hrp, "bc"}} =
+               Nhash.decode("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4")
     end
 
     test "returns error for invalid bech32 (no separator)" do

@@ -9,10 +9,10 @@ defmodule Narwal.Nix32 do
   """
 
   @alphabet "0123456789abcdfghijklmnpqrsvwxyz"
-  @reverse_map (String.graphemes(@alphabet)
-                |> Enum.with_index()
-                |> Enum.map(fn {ch, idx} -> {ch, idx} end)
-                |> Map.new())
+  @reverse_map String.graphemes(@alphabet)
+               |> Enum.with_index()
+               |> Enum.map(fn {ch, idx} -> {ch, idx} end)
+               |> Map.new()
 
   @doc """
   Decode a Nix32 string to raw bytes.
