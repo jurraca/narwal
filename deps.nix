@@ -272,7 +272,7 @@ let
 
       hpax =
         let
-          version = "1.0.4";
+          version = "1.1.0";
           drv = buildMix {
             inherit version;
             name = "hpax";
@@ -281,7 +281,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "hpax";
-              sha256 = "afc7cb142ebcc2d01ce7816190b98ce5dd49e799111b24249f3443d730f377ca";
+              sha256 = "0b8d0f05832f55571d65ac720f79bf8994138ffbb133209dc4685eae0ad456a8";
             };
           };
         in
@@ -344,7 +344,7 @@ let
 
       mint =
         let
-          version = "1.10.0";
+          version = "1.11.0";
           drv = buildMix {
             inherit version;
             name = "mint";
@@ -353,7 +353,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "mint";
-              sha256 = "8b16fb72aaa7531d206a1f05e4cc85509ba531ccec7a17a22736c9c95cbb24d1";
+              sha256 = "c6279ba2d6aa3a383a1d4cfbe7b59f42e6efd400f58d8e2acfeac48a438693ab";
             };
 
             beamDeps = [
