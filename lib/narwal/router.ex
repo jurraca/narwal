@@ -25,7 +25,7 @@ defmodule Narwal.Router do
 
   require Logger
 
-  alias Narwal.{Blossom, Dashboard, HomePage, Manifest, Nix32, RootResolver, Stats, TreeCache}
+  alias Narwal.{Blossom, HomePage, Manifest, Nix32, RootResolver, Stats, TreeCache}
 
   plug(:maybe_log)
   plug(:cors)
@@ -45,24 +45,6 @@ defmodule Narwal.Router do
     conn
     |> put_resp_content_type("text/html")
     |> send_resp(200, HomePage.render_cache_page(pubkey, channel, conn.query_params))
-  end
-
-  get "/dashboard" do
-    conn
-    |> put_resp_content_type("text/html")
-    |> send_resp(200, Dashboard.render_page())
-  end
-
-  get "/dashboard/content" do
-    conn
-    |> put_resp_content_type("text/html")
-    |> send_resp(200, Dashboard.render_fragment())
-  end
-
-  get "/dashboard/roots" do
-    conn
-    |> put_resp_content_type("text/html")
-    |> send_resp(200, Dashboard.render_roots())
   end
 
   get "/nix-cache-info" do
