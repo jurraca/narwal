@@ -36,7 +36,7 @@
         version = "0.1.0";
         src = ./.;
 
-        mixNixDeps = pkgs.callPackages ./deps.nix { };
+        mixNixDeps = pkgs.callPackages ./nix/deps.nix { };
 
         buildInputs = [ pkgs.openssl ];
 
@@ -60,11 +60,11 @@
     devShells = forAllSystems (system: let
       pkgs = nixpkgsFor system;
     in {
-      default = pkgs.callPackage ./shell.nix {};
+      default = pkgs.callPackage ./nix/shell.nix {};
     });
 
     nixosModules = {
-      narwal = import ./module.nix;
+      narwal = import ./nix/module.nix;
       default = self.nixosModules.narwal;
     };
   };
