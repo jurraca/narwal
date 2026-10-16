@@ -94,8 +94,20 @@ defmodule Narwal.RootResolverTest do
     ]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
-             %{hashpart: other_hashpart, name: "zstd-1.5.6", size: 512, top: true}
+             %{
+               hashpart: @hashpart,
+               name: "hello-2.12.1",
+               name_lc: "hello-2.12.1",
+               size: 512,
+               top: true
+             },
+             %{
+               hashpart: other_hashpart,
+               name: "zstd-1.5.6",
+               name_lc: "zstd-1.5.6",
+               size: 512,
+               top: true
+             }
            ]
   end
 
@@ -116,8 +128,14 @@ defmodule Narwal.RootResolverTest do
     ]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
-             %{hashpart: dep_hp, name: "zstd-1.5.6", size: 512, top: false}
+             %{
+               hashpart: @hashpart,
+               name: "hello-2.12.1",
+               name_lc: "hello-2.12.1",
+               size: 512,
+               top: true
+             },
+             %{hashpart: dep_hp, name: "zstd-1.5.6", name_lc: "zstd-1.5.6", size: 512, top: false}
            ]
   end
 
@@ -126,7 +144,7 @@ defmodule Narwal.RootResolverTest do
     leaves = [%{name: "#{@hashpart}.narinfo", hash_hex: "deadbeef", size: 100, servers: []}]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: nil, size: nil, top: true}
+             %{hashpart: @hashpart, name: nil, name_lc: @hashpart, size: nil, top: true}
            ]
   end
 
@@ -144,7 +162,13 @@ defmodule Narwal.RootResolverTest do
     ]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
+             %{
+               hashpart: @hashpart,
+               name: "hello-2.12.1",
+               name_lc: "hello-2.12.1",
+               size: 512,
+               top: true
+             }
            ]
   end
 

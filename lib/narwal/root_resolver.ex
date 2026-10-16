@@ -488,7 +488,13 @@ defmodule Narwal.RootResolver do
 
         case store_path && Narwal.Narinfo.split_name(Path.basename(store_path)) do
           {:ok, hashpart, name} ->
-            pkg = %{hashpart: hashpart, name: name, size: file_size}
+            pkg = %{
+              hashpart: hashpart,
+              name: name,
+              name_lc: String.downcase(name),
+              size: file_size
+            }
+
             {pkg, ref_hashparts(references)}
 
           _ ->
@@ -519,7 +525,7 @@ defmodule Narwal.RootResolver do
   defp unknown_pkg(leaf) do
     case String.replace_suffix(leaf.name, ".narinfo", "") do
       hashpart when hashpart != leaf.name and hashpart != "" ->
-        {%{hashpart: hashpart, name: nil, size: nil}, []}
+        {%{hashpart: hashpart, name: nil, name_lc: String.downcase(hashpart), size: nil}, []}
 
       _ ->
         :skip

@@ -19,6 +19,7 @@ defmodule Narwal.HomePage do
   """
 
   @page_size 100
+  @search_cap 50
 
   @css """
   :root {
@@ -111,6 +112,9 @@ defmodule Narwal.HomePage do
     <body>
     <h1>Narwal</h1>
     <div class="subtitle">Nix binary cache index — Nostr + Blossom</div>
+    <form class="search-form" method="get" action="/">
+      <input type="text" name="q" placeholder="search packages and caches…">
+    </form>
     #{body}
     </body>
     </html>
@@ -298,7 +302,48 @@ defmodule Narwal.HomePage do
   defp total_pages([]), do: 1
   defp total_pages(pkgs), do: div(length(pkgs) - 1, @page_size) + 1
 
-  defp pkg_key(pkg), do: String.downcase(pkg.name || pkg.hashpart)
+  # name_lc is the pre-lowercased search key (name, or hashpart when unnamed).
+  defp pkg_key(pkg), do: Map.get(pkg, :name_lc) || String.downcase(pkg.name || pkg.hashpart)
+
+  # Global search over the ETS-resident index (no fetches).
+  #
+  # Matches package names (case-insensitive substring, all paths) and
+  # caches (npub or channel substring). `pkgs` is capped at
+  # `@search_cap` results, `pkg_total` is the uncapped match count.
+  @doc false
+  @spec search(String.t()) :: %{caches: [map()], pkgs: [map()], pkg_total: non_neg_integer()}
+  def search(query) do
+    case String.downcase(String.trim(query)) do
+      "" ->
+        %{caches: [], pkgs: [], pkg_total: 0}
+
+      q ->
+        roots = get_roots()
+
+        pkgs = search_pkgs(roots, q)
+
+        %{
+          caches: Enum.filter(roots, &cache_matches?(&1, q)),
+          pkgs: Enum.take(pkgs, @search_cap),
+          pkg_total: length(pkgs)
+        }
+    end
+  end
+
+  defp cache_matches?(root, q) do
+    String.contains?(hex_to_npub(root.pubkey), q) or
+      String.contains?(String.downcase(channel_label(root.channel)), q)
+  end
+
+  defp search_pkgs(roots, q) do
+    roots
+    |> Enum.flat_map(fn root ->
+      get_pkgs(root.pubkey, root.channel)
+      |> Enum.filter(&String.contains?(pkg_key(&1), q))
+      |> Enum.map(&Map.merge(&1, %{pubkey: root.pubkey, channel: root.channel}))
+    end)
+    |> Enum.sort_by(&pkg_key/1)
+  end
 
   # Top-level only (default) or the full closure.
   defp scope_param("all"), do: :all
