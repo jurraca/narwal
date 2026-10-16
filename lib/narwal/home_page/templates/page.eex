@@ -1,6 +1,6 @@
 <section class="intro" aria-labelledby="page-title">
   <div>
-    <h1 id="page-title"><em>Browse what's built.</em></h1>
+    <h1 id="page-title"><em>a world of builds.</em></h1>
     <p class="lede">An open directory of Nix binary caches.</p>
   </div>
   <aside class="intro-note">
