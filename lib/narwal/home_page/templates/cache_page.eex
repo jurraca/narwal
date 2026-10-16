@@ -1,2 +1,2 @@
-<div class="subtitle"><a href="/">← all caches</a></div>
+<a class="back-link" href="/">← Directory</a>
 <%= raw(body) %>

@@ -87,7 +87,13 @@ defmodule Narwal.RouterTest do
 
       assert conn.status == 200
       assert conn.resp_body =~ "Narwal"
-      assert conn.resp_body =~ "1 packages · 1 paths"
+
+      assert conn.resp_body =~
+               ~s(<span class="metric-value">1</span><span class="metric-label">packages</span>)
+
+      assert conn.resp_body =~
+               ~s(<span class="metric-value">1</span><span class="metric-label">paths</span>)
+
       assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
     end
 

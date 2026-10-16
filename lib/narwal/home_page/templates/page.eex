@@ -1,6 +1,29 @@
-<h1>Narwal</h1>
-<div class="subtitle">Nix binary cache index — Nostr + Blossom</div>
-<form class="search-form" method="get" action="/">
-  <input type="text" name="q" value="<%= q %>" placeholder="search packages and caches…">
-</form>
-<%= raw(content) %>
+<section class="intro" aria-labelledby="page-title">
+  <div>
+    <h1 id="page-title"><em>Browse what's built.</em></h1>
+    <p class="lede">An open directory of Nix binary caches.</p>
+  </div>
+  <aside class="intro-note">
+    <b>Community published.</b><br>
+    Each cache is listed by its publisher and channel. Choose one to see its package list and technical details.
+  </aside>
+</section>
+
+<section id="directory" aria-labelledby="directory-title">
+  <div class="directory-head">
+    <div>
+      <h2 class="section-title" id="directory-title">Cache directory</h2>
+      <p class="section-caption">Browse a publisher's indexed packages.</p>
+    </div>
+    <div class="directory-total">sorted by recent update</div>
+  </div>
+
+  <form class="search-form" method="get" action="/">
+    <input type="text" name="q" value="<%= q %>" placeholder="Search packages and caches…">
+  </form>
+  <%= raw(content) %>
+
+  <div class="directory-foot">
+    <span><strong>Open by design.</strong> Cache announcements are found via Nostr and their binary data is served by Blossom servers.</span>
+  </div>
+</section>
