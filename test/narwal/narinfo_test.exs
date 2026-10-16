@@ -46,6 +46,24 @@ defmodule Narwal.NarinfoTest do
     assert %{store_path: nil} = Narinfo.parse(bytes)
   end
 
+  test "parses References into a list" do
+    bytes = """
+    StorePath: /nix/store/#{@hashpart}-hello-2.12.1
+    References: rkiwrqh8g6gs5rws4bf1s3mrdcs15gm9-glibc-2.42-84 yf2c1gngi2dqvgni1rgvnixxc0d8di02-gcc-15.2.0-libgcc
+    """
+
+    assert %{
+             references: [
+               "rkiwrqh8g6gs5rws4bf1s3mrdcs15gm9-glibc-2.42-84",
+               "yf2c1gngi2dqvgni1rgvnixxc0d8di02-gcc-15.2.0-libgcc"
+             ]
+           } = Narinfo.parse(bytes)
+  end
+
+  test "missing References yield an empty list" do
+    assert %{references: []} = Narinfo.parse(narinfo_text("/nix/store/#{@hashpart}-hello-2.12.1"))
+  end
+
   describe "split_name/1" do
     test "splits hashpart from name" do
       assert {:ok, @hashpart, "hello-2.12.1"} = Narinfo.split_name("#{@hashpart}-hello-2.12.1")

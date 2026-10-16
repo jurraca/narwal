@@ -8,7 +8,9 @@ defmodule Narwal.HomePage do
   - `render_page/0` — `/`: one card per cache ({publisher, channel}),
     sorted by most recently updated.
   - `render_cache_page/3` — `/cache/<pubkey>/<channel>`: the package
-    table for one cache, with substring search and pagination.
+    table for one cache, with substring search and pagination. Top-level
+    packages (not referenced by any other indexed narinfo) by default,
+    `?scope=all` for the full closure.
 
   Package names come from RootResolver's index-time narinfo enrichment
   (see `Narwal.RootResolver.enrich_leaves/1`); entries whose narinfo
@@ -169,16 +171,26 @@ defmodule Narwal.HomePage do
     """
   end
 
+  defp pkg_count(%{pkg_count: total, top_pkg_count: top})
+       when is_integer(total) and is_integer(top),
+       do: "#{top} packages · #{total} paths"
+
   defp pkg_count(%{pkg_count: count}) when is_integer(count), do: "#{count} packages"
+
   defp pkg_count(_building), do: "indexing…"
 
   ## Package list
 
   defp render_packages(root, params) do
     pkgs = get_pkgs(root.pubkey, root.channel)
+    scope = scope_param(params["scope"])
+    scoped = if scope == :all, do: pkgs, else: Enum.filter(pkgs, &Map.get(&1, :top, true))
 
     q = params["q"] |> safe_trim() |> String.downcase()
-    filtered = if q == "", do: pkgs, else: Enum.filter(pkgs, &String.contains?(pkg_key(&1), q))
+
+    filtered =
+      if q == "", do: scoped, else: Enum.filter(scoped, &String.contains?(pkg_key(&1), q))
+
     filtered = Enum.sort_by(filtered, &pkg_key/1)
 
     page = page_param(params["page"])
@@ -189,13 +201,14 @@ defmodule Narwal.HomePage do
     <h1>#{escape(hex_to_npub(root.pubkey))}</h1>
     <div class="subtitle">
       channel: #{escape(channel_label(root.channel))} ·
-      #{length(filtered)} packages · updated #{relative_time(root.created_at)}
+      #{length(filtered)} packages · updated #{relative_time(root.created_at)} ·
+      #{scope_toggle(root, scope, q, length(pkgs))}
     </div>
     <form class="search-form" method="get" action="/cache/#{hex_to_npub(root.pubkey)}/#{escape(channel_path(root.channel))}">
       <input type="text" name="q" value="#{escape(q)}" placeholder="search packages…">
     </form>
     #{rows_html(rows)}
-    #{pager_html(page, total_pages, prev_page, next_page, root, q)}
+    #{pager_html(page, total_pages, prev_page, next_page, root, q, scope)}
     """
   end
 
@@ -226,7 +239,7 @@ defmodule Narwal.HomePage do
     """
   end
 
-  defp pager_html(page, total_pages, prev_page, next_page, root, q) do
+  defp pager_html(page, total_pages, prev_page, next_page, root, q, scope) do
     cond do
       prev_page == nil and next_page == nil ->
         ""
@@ -234,22 +247,39 @@ defmodule Narwal.HomePage do
       true ->
         """
         <div class="pager">
-          #{pager_link(prev_page, "← newer", root, q)}
+          #{pager_link(prev_page, "← newer", root, q, scope)}
           &nbsp;page #{page} of #{total_pages}&nbsp;
-          #{pager_link(next_page, "older →", root, q)}
+          #{pager_link(next_page, "older →", root, q, scope)}
         </div>
         """
     end
   end
 
-  defp pager_link(nil, label, _root, _q), do: "<span class=\"dim\">#{label}</span>"
+  defp pager_link(nil, label, _root, _q, _scope), do: "<span class=\"dim\">#{label}</span>"
 
-  defp pager_link(page, label, root, q) do
-    "<a href=\"#{page_href(root, page, q)}\">#{label}</a>"
+  defp pager_link(page, label, root, q, scope) do
+    "<a href=\"#{page_href(root, page, q, scope)}\">#{label}</a>"
   end
 
-  defp page_href(root, page, q) do
-    base = "/cache/#{hex_to_npub(root.pubkey)}/#{channel_path(root.channel)}?page=#{page}"
+  defp page_href(root, page, q, scope) do
+    base =
+      "/cache/#{hex_to_npub(root.pubkey)}/#{channel_path(root.channel)}?page=#{page}&scope=#{scope}"
+
+    if q == "" do
+      base
+    else
+      base <> "&q=" <> URI.encode_www_form(q)
+    end
+  end
+
+  defp scope_toggle(root, :top, q, total),
+    do: "<a href=\"#{scope_href(root, "all", q)}\">show all #{total} packages</a>"
+
+  defp scope_toggle(root, :all, q, _total),
+    do: "<a href=\"#{scope_href(root, "top", q)}\">top-level only</a>"
+
+  defp scope_href(root, scope, q) do
+    base = "/cache/#{hex_to_npub(root.pubkey)}/#{channel_path(root.channel)}?scope=#{scope}"
 
     if q == "" do
       base
@@ -269,6 +299,10 @@ defmodule Narwal.HomePage do
   defp total_pages(pkgs), do: div(length(pkgs) - 1, @page_size) + 1
 
   defp pkg_key(pkg), do: String.downcase(pkg.name || pkg.hashpart)
+
+  # Top-level only (default) or the full closure.
+  defp scope_param("all"), do: :all
+  defp scope_param(_), do: :top
 
   ## Data access
 

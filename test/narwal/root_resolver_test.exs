@@ -21,8 +21,9 @@ defmodule Narwal.RootResolverTest do
     hex
   end
 
-  defp narinfo_text(store_path) do
-    "StorePath: #{store_path}\nFileSize: 512\n"
+  defp narinfo_text(store_path, references \\ []) do
+    refs = if references == [], do: "", else: "References: #{Enum.join(references, " ")}\n"
+    "StorePath: #{store_path}\n#{refs}FileSize: 512\n"
   end
 
   test "walk_dir_collect flattens chunked directories" do
@@ -93,8 +94,30 @@ defmodule Narwal.RootResolverTest do
     ]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512},
-             %{hashpart: other_hashpart, name: "zstd-1.5.6", size: 512}
+             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
+             %{hashpart: other_hashpart, name: "zstd-1.5.6", size: 512, top: true}
+           ]
+  end
+
+  test "enrich_leaves marks referenced packages as non-top-level" do
+    dep_hp = "1f3q75ym3390abjlmrz9kx07160xyrs9"
+    # "garbage" has no 32-char hashpart and must be ignored, not crash.
+    top_hex =
+      put_narinfo(
+        "hello",
+        narinfo_text("/nix/store/#{@hashpart}-hello-2.12.1", ["#{dep_hp}-zstd-1.5.6", "garbage"])
+      )
+
+    dep_hex = put_narinfo("dep", narinfo_text("/nix/store/#{dep_hp}-zstd-1.5.6"))
+
+    leaves = [
+      %{name: "#{@hashpart}.narinfo", hash_hex: top_hex, size: 100, servers: []},
+      %{name: "#{dep_hp}.narinfo", hash_hex: dep_hex, size: 120, servers: []}
+    ]
+
+    assert RootResolver.enrich_leaves(leaves) == [
+             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
+             %{hashpart: dep_hp, name: "zstd-1.5.6", size: 512, top: false}
            ]
   end
 
@@ -103,7 +126,7 @@ defmodule Narwal.RootResolverTest do
     leaves = [%{name: "#{@hashpart}.narinfo", hash_hex: "deadbeef", size: 100, servers: []}]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: nil, size: nil}
+             %{hashpart: @hashpart, name: nil, size: nil, top: true}
            ]
   end
 
@@ -121,7 +144,7 @@ defmodule Narwal.RootResolverTest do
     ]
 
     assert RootResolver.enrich_leaves(leaves) == [
-             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512}
+             %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
            ]
   end
 

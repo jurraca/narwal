@@ -53,6 +53,7 @@ defmodule Narwal.RouterTest do
     @pubkey "aa" <> String.duplicate("bb", 31)
     @npub Bechamel.encode("npub", Base.decode16!(@pubkey, case: :mixed))
     @hashpart "0c2a5hhq7q6wq0qry4l7g55dmvx7v8i3"
+    @dep_hashpart "1f3q75ym3390abjlmrz9kx07160xyrs9"
 
     defp put_root_and_pkgs(channel, pkgs) do
       root = %{
@@ -63,7 +64,8 @@ defmodule Narwal.RouterTest do
         event_id: "test",
         link_count: length(pkgs) + 1,
         total_bytes: 100,
-        pkg_count: length(pkgs)
+        pkg_count: length(pkgs),
+        top_pkg_count: length(pkgs)
       }
 
       :ets.insert(:narwal_roots, {{:root, @pubkey, channel}, root})
@@ -83,7 +85,7 @@ defmodule Narwal.RouterTest do
 
       assert conn.status == 200
       assert conn.resp_body =~ "Narwal"
-      assert conn.resp_body =~ "1 packages"
+      assert conn.resp_body =~ "1 packages · 1 paths"
       assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
     end
 
@@ -133,6 +135,36 @@ defmodule Narwal.RouterTest do
 
       assert conn.status == 200
       assert conn.resp_body =~ "Unknown cache"
+    end
+
+    test "GET /cache/<npub>/<channel> defaults to top-level packages" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
+        %{hashpart: @dep_hashpart, name: "zstd-1.5.6", size: 256, top: false}
+      ])
+
+      conn = conn(:get, "/cache/#{@npub}/default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      refute conn.resp_body =~ "zstd-1.5.6"
+      assert conn.resp_body =~ "show all 2 packages"
+    end
+
+    test "GET /cache/<npub>/<channel>?scope=all lists dependencies too" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},
+        %{hashpart: @dep_hashpart, name: "zstd-1.5.6", size: 256, top: false}
+      ])
+
+      conn = conn(:get, "/cache/#{@npub}/default?scope=all")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      assert conn.resp_body =~ "zstd-1.5.6"
+      assert conn.resp_body =~ "top-level only"
     end
   end
 end

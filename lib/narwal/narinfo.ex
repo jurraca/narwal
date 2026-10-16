@@ -3,27 +3,31 @@ defmodule Narwal.Narinfo do
   Minimal narinfo text parser.
 
   Narinfos are small key-value text files (one `"Field: value"` pair per
-  line). The home page only needs two fields: `StorePath:` (package
-  identity — the tree itself carries only hashparts) and `FileSize:`
-  (compressed NAR download size).
+  line). The home page needs three fields: `StorePath:` (package
+  identity — the tree itself carries only hashparts), `FileSize:`
+  (compressed NAR download size) and `References:` (dependency store
+  paths, used to compute which packages are top-level).
 
-  Parsing fails soft: missing or malformed fields yield `nil`, never
-  errors, so a single odd blob can never break index building.
+  Parsing fails soft: missing or malformed fields yield `nil` (or `[]`
+  for references), never errors, so a single odd blob can never break
+  index building.
   """
 
   @doc """
   Parse narinfo text bytes into a small map.
 
-  Returns `%{store_path: String.t() | nil, file_size: non_neg_integer() | nil}`.
+  Returns `%{store_path: String.t() | nil, file_size: non_neg_integer() | nil, references: [String.t()]}`.
   """
   @spec parse(binary()) :: %{
           store_path: String.t() | nil,
-          file_size: non_neg_integer() | nil
+          file_size: non_neg_integer() | nil,
+          references: [String.t()]
         }
   def parse(bytes) when is_binary(bytes) do
     %{
       store_path: find_field(bytes, "StorePath"),
-      file_size: find_int_field(bytes, "FileSize")
+      file_size: find_int_field(bytes, "FileSize"),
+      references: find_field(bytes, "References") |> split_references()
     }
   end
 
@@ -62,6 +66,9 @@ defmodule Narwal.Narinfo do
         nil
     end
   end
+
+  defp split_references(nil), do: []
+  defp split_references(refs), do: String.split(refs)
 
   defp find_int_field(bytes, field) do
     case find_field(bytes, field) do

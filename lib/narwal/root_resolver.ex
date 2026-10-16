@@ -403,7 +403,12 @@ defmodule Narwal.RootResolver do
     updated_root =
       state.roots
       |> Map.fetch!(key)
-      |> Map.merge(%{link_count: link_count, total_bytes: total_bytes, pkg_count: length(pkgs)})
+      |> Map.merge(%{
+        link_count: link_count,
+        total_bytes: total_bytes,
+        pkg_count: length(pkgs),
+        top_pkg_count: Enum.count(pkgs, &Map.get(&1, :top))
+      })
 
     :ets.insert(state.table, {{:root, pubkey, channel}, updated_root})
     %{state | roots: Map.put(state.roots, key, updated_root)}
@@ -442,38 +447,52 @@ defmodule Narwal.RootResolver do
     end
   end
 
-  # Fetch and parse each leaf's narinfo blob to extract the package name —
-  # the tree itself only carries hashparts. Narinfo blobs are tiny and
-  # content-addressed, so after the first build TreeCache serves them from
-  # ETS and Blossom is only hit for newly published packages.
+  # Fetch and parse each leaf's narinfo blob to extract the package name and
+  # references — the tree itself only carries hashparts. Narinfo blobs are
+  # tiny and content-addressed, so after the first build TreeCache serves
+  # them from ETS and Blossom is only hit for newly published packages.
   #
   # A leaf whose narinfo cannot be fetched or parsed stays listed under
   # its hashpart (name: nil); auxiliary entries like nix-cache-info are
-  # dropped from the package list.
+  # dropped from the package list. References are reduced to the set of
+  # hashparts other packages depend on — a package is top-level when it
+  # is referenced by no one.
   @doc false
   @spec enrich_leaves([map()]) :: [map()]
   def enrich_leaves(leaves) do
-    leaves
-    |> Task.async_stream(&enrich_leaf/1,
-      concurrency: @enrich_concurrency,
-      timeout: :infinity,
-      ordered: false
-    )
-    |> Enum.reduce([], fn
-      {:ok, %{name: _} = pkg}, acc -> [pkg | acc]
-      {:ok, :skip}, acc -> acc
-    end)
+    {pkgs, referenced} =
+      leaves
+      |> Task.async_stream(&enrich_leaf/1,
+        concurrency: @enrich_concurrency,
+        timeout: :infinity,
+        ordered: false
+      )
+      |> Enum.reduce({[], MapSet.new()}, fn
+        {:ok, {pkg, refs}}, {acc, set} ->
+          {[pkg | acc], MapSet.union(set, MapSet.new(refs))}
+
+        {:ok, :skip}, acc ->
+          acc
+      end)
+
+    pkgs
+    |> Enum.map(&Map.put(&1, :top, not MapSet.member?(referenced, &1.hashpart)))
     |> Enum.sort_by(&(&1.name || &1.hashpart))
   end
 
   defp enrich_leaf(leaf) do
     case Narwal.TreeCache.fetch_narinfo(leaf.hash_hex, leaf.servers) do
       {:ok, narinfo} ->
-        %{store_path: store_path, file_size: file_size} = Narwal.Narinfo.parse(narinfo)
+        %{store_path: store_path, file_size: file_size, references: references} =
+          Narwal.Narinfo.parse(narinfo)
 
         case store_path && Narwal.Narinfo.split_name(Path.basename(store_path)) do
-          {:ok, hashpart, name} -> %{hashpart: hashpart, name: name, size: file_size}
-          _ -> unknown_pkg(leaf)
+          {:ok, hashpart, name} ->
+            pkg = %{hashpart: hashpart, name: name, size: file_size}
+            {pkg, ref_hashparts(references)}
+
+          _ ->
+            unknown_pkg(leaf)
         end
 
       {:error, reason} ->
@@ -482,13 +501,25 @@ defmodule Narwal.RootResolver do
     end
   end
 
+  # References name other store paths ("<hashpart>-name"); only the
+  # hashparts are needed to know which packages are somebody's dependency.
+  defp ref_hashparts(references) do
+    Enum.flat_map(references, fn ref ->
+      case Narwal.Narinfo.split_name(ref) do
+        {:ok, hashpart, _name} -> [hashpart]
+        :error -> []
+      end
+    end)
+  end
+
   # Unknown-name fallback: a "<hashpart>.narinfo" entry whose blob could not
-  # be fetched or parsed. Non-".narinfo" entries (nix-cache-info) are not
-  # packages and are skipped.
+  # be fetched or parsed. Its own references are unknown, but it can still
+  # be demoted by other packages' references. Non-".narinfo" entries
+  # (nix-cache-info) are not packages and are skipped.
   defp unknown_pkg(leaf) do
     case String.replace_suffix(leaf.name, ".narinfo", "") do
       hashpart when hashpart != leaf.name and hashpart != "" ->
-        %{hashpart: hashpart, name: nil, size: nil}
+        {%{hashpart: hashpart, name: nil, size: nil}, []}
 
       _ ->
         :skip
