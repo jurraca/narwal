@@ -78,7 +78,9 @@ defmodule Narwal.RouterTest do
     end
 
     test "GET / lists caches" do
-      put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
+      ])
 
       conn = conn(:get, "/")
       conn = Narwal.Router.call(conn, [])
@@ -87,6 +89,42 @@ defmodule Narwal.RouterTest do
       assert conn.resp_body =~ "Narwal"
       assert conn.resp_body =~ "1 packages · 1 paths"
       assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
+    end
+
+    test "GET / with q shows package search results" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
+      ])
+
+      conn = conn(:get, "/?q=hello")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      assert conn.resp_body =~ "Packages — 1 match"
+    end
+
+    test "GET / with q matching a cache shows its card" do
+      put_root_and_pkgs(:default, [])
+
+      conn = conn(:get, "/?q=default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "Caches"
+      assert conn.resp_body =~ @npub
+    end
+
+    test "GET / with q matching nothing says so" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
+      ])
+
+      conn = conn(:get, "/?q=zstd")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "No matches"
     end
 
     test "GET /cache/<hex>/<channel> lists packages" do

@@ -5,8 +5,9 @@ defmodule Narwal.HomePage do
   Two views, both rendered from ETS-resident index state only — no
   Blossom fetches ever happen here:
 
-  - `render_page/0` — `/`: one card per cache ({publisher, channel}),
-    sorted by most recently updated.
+  - `render_page/1` — `/`: search box + search results (`?q=`) and one
+    card per cache ({publisher, channel}), sorted by most recently
+    updated.
   - `render_cache_page/3` — `/cache/<pubkey>/<channel>`: the package
     table for one cache, with substring search and pagination. Top-level
     packages (not referenced by any other indexed narinfo) by default,
@@ -58,6 +59,13 @@ defmodule Narwal.HomePage do
   .cache-meta { color: var(--dim); font-size: 12px; margin-top: 6px; }
   .cache-stats { display: flex; gap: 16px; margin-top: 8px; color: var(--green); font-size: 12px; }
   .search-form { margin: 16px 0; }
+  .search-heading {
+    color: var(--dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 16px 0 8px;
+  }
   .search-form input {
     background: var(--bg);
     color: var(--fg);
@@ -85,19 +93,17 @@ defmodule Narwal.HomePage do
   .empty { color: var(--dim); font-style: italic; }
   """
 
-  @doc "Render the cache directory (`/`)."
-  @spec render_page() :: binary()
-  def render_page do
+  @doc "Render the cache directory (`/`), with search results when `q` is set."
+  @spec render_page(map()) :: binary()
+  def render_page(query_params) do
     roots = get_roots()
+    q = safe_trim(query_params["q"])
 
     body =
       if roots == [] do
         "<p class=\"empty\">No caches resolved yet.</p>"
       else
-        roots
-        |> Enum.sort_by(& &1.created_at, :desc)
-        |> Enum.map(&render_cache_card/1)
-        |> Enum.join("\n")
+        [search_results_html(q), cards_html(roots)] |> Enum.join("\n")
       end
 
     """
@@ -113,11 +119,71 @@ defmodule Narwal.HomePage do
     <h1>Narwal</h1>
     <div class="subtitle">Nix binary cache index — Nostr + Blossom</div>
     <form class="search-form" method="get" action="/">
-      <input type="text" name="q" placeholder="search packages and caches…">
+      <input type="text" name="q" value="#{escape(q)}" placeholder="search packages and caches…">
     </form>
     #{body}
     </body>
     </html>
+    """
+  end
+
+  defp cards_html(roots) do
+    roots
+    |> Enum.sort_by(& &1.created_at, :desc)
+    |> Enum.map(&render_cache_card/1)
+    |> Enum.join("\n")
+  end
+
+  ## Search results
+
+  defp search_results_html(""), do: ""
+
+  defp search_results_html(q) do
+    %{caches: caches, pkgs: pkgs, pkg_total: total} = search(q)
+
+    if caches == [] and pkgs == [] do
+      "<p class=\"empty\">No matches for \"#{escape(q)}\".</p>"
+    else
+      [cache_results_html(caches), pkg_results_html(pkgs, total)]
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.join("\n")
+    end
+  end
+
+  defp cache_results_html([]), do: ""
+
+  defp cache_results_html(caches) do
+    "<div class=\"search-heading\">Caches</div>\n" <>
+      Enum.map_join(caches, "\n", &render_cache_card/1)
+  end
+
+  defp pkg_results_html([], _total), do: ""
+
+  defp pkg_results_html(pkgs, total) do
+    cap_note = if total > length(pkgs), do: " (showing first #{length(pkgs)})", else: ""
+
+    """
+    <div class="search-heading">Packages — #{total} match#{if total == 1, do: "", else: "es"}#{cap_note}</div>
+    <table class="pkg-table">
+      <thead>
+        <tr><th>Package</th><th>Cache</th><th class="size">Size</th></tr>
+      </thead>
+      <tbody>
+      #{Enum.map_join(pkgs, "\n", &search_pkg_row/1)}
+      </tbody>
+    </table>
+    """
+  end
+
+  defp search_pkg_row(pkg) do
+    name = pkg.name || pkg.hashpart
+
+    """
+    <tr>
+      <td><a href="/cache/#{hex_to_npub(pkg.pubkey)}/#{channel_path(pkg.channel)}?q=#{URI.encode_www_form(name)}">#{escape(name)}</a></td>
+      <td class="hash">#{escape(hex_to_npub(pkg.pubkey))} · #{escape(channel_label(pkg.channel))}</td>
+      <td class="size">#{format_bytes(pkg.size)}</td>
+    </tr>
     """
   end
 

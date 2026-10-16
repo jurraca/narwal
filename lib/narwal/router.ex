@@ -34,9 +34,11 @@ defmodule Narwal.Router do
   plug(:dispatch)
 
   get "/" do
+    conn = fetch_query_params(conn)
+
     conn
     |> put_resp_content_type("text/html")
-    |> send_resp(200, HomePage.render_page())
+    |> send_resp(200, HomePage.render_page(conn.query_params))
   end
 
   get "/cache/:pubkey/:channel" do
