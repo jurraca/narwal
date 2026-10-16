@@ -124,8 +124,10 @@ defmodule Narwal.HomePage do
   @spec render_cache_page(String.t(), String.t(), map()) :: binary()
   def render_cache_page(pubkey, channel, query_params) do
     roots = get_roots()
+    pubkey = normalize_pubkey(pubkey)
 
-    root = Enum.find(roots, &(&1.pubkey == pubkey and channel_path(&1.channel) == channel))
+    root =
+      Enum.find(roots, &(&1.pubkey == pubkey and URI.decode(channel_path(&1.channel)) == channel))
 
     body =
       if root do
@@ -155,7 +157,7 @@ defmodule Narwal.HomePage do
 
   defp render_cache_card(root) do
     """
-    <a class="cache-card" href="/cache/#{escape(channel_path(root.channel))}">
+    <a class="cache-card" href="/cache/#{hex_to_npub(root.pubkey)}/#{escape(channel_path(root.channel))}">
       <div class="cache-npub">#{escape(hex_to_npub(root.pubkey))}</div>
       <div class="cache-meta">channel: #{escape(channel_label(root.channel))}</div>
       <div class="cache-stats">
@@ -189,7 +191,7 @@ defmodule Narwal.HomePage do
       channel: #{escape(channel_label(root.channel))} ·
       #{length(filtered)} packages · updated #{relative_time(root.created_at)}
     </div>
-    <form class="search-form" method="get" action="/cache/#{escape(channel_path(root.channel))}">
+    <form class="search-form" method="get" action="/cache/#{hex_to_npub(root.pubkey)}/#{escape(channel_path(root.channel))}">
       <input type="text" name="q" value="#{escape(q)}" placeholder="search packages…">
     </form>
     #{rows_html(rows)}
@@ -247,7 +249,7 @@ defmodule Narwal.HomePage do
   end
 
   defp page_href(root, page, q) do
-    base = "/cache/#{channel_path(root.channel)}?page=#{page}"
+    base = "/cache/#{hex_to_npub(root.pubkey)}/#{channel_path(root.channel)}?page=#{page}"
 
     if q == "" do
       base
@@ -323,6 +325,18 @@ defmodule Narwal.HomePage do
   rescue
     _ -> hex
   end
+
+  # Card links use npubs, the index keys roots by hex pubkey — normalize
+  # either form to hex before matching. An undecodable npub falls through
+  # and simply fails the lookup ("Unknown cache").
+  defp normalize_pubkey("npub1" <> _ = npub) do
+    case NostrCore.Bech32.decode(npub) do
+      {:ok, "npub", hex} -> hex
+      _ -> npub
+    end
+  end
+
+  defp normalize_pubkey(hex), do: hex
 
   defp relative_time(unix_ts) when is_integer(unix_ts) do
     diff = System.os_time(:second) - unix_ts

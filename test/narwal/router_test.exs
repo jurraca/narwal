@@ -51,6 +51,7 @@ defmodule Narwal.RouterTest do
 
   describe "home page" do
     @pubkey "aa" <> String.duplicate("bb", 31)
+    @npub Bechamel.encode("npub", Base.decode16!(@pubkey, case: :mixed))
     @hashpart "0c2a5hhq7q6wq0qry4l7g55dmvx7v8i3"
 
     defp put_root_and_pkgs(channel, pkgs) do
@@ -83,12 +84,24 @@ defmodule Narwal.RouterTest do
       assert conn.status == 200
       assert conn.resp_body =~ "Narwal"
       assert conn.resp_body =~ "1 packages"
+      assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
     end
 
-    test "GET /cache/<pubkey>/<channel> lists packages" do
+    test "GET /cache/<hex>/<channel> lists packages" do
       put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
 
       conn = conn(:get, "/cache/#{@pubkey}/default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "hello-2.12.1"
+      assert conn.resp_body =~ @hashpart
+    end
+
+    test "GET /cache/<npub>/<channel> lists packages" do
+      put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
+
+      conn = conn(:get, "/cache/#{@npub}/default")
       conn = Narwal.Router.call(conn, [])
 
       assert conn.status == 200
