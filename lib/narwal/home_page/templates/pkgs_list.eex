@@ -4,7 +4,11 @@
   <%= raw(toggle) %>
 </p>
 <div class="nix-config">
-  <div class="config-line"><span class="config-label">substituters</span><code class="config-value"><%= base_url %></code></div>
+  <div class="config-line">
+    <span class="config-label">substituters</span>
+    <code class="config-value"><%= base_url %></code>
+    <span class="copy-btn" role="button" tabindex="0" data-copy="<%= base_url %>">copy</span>
+  </div>
   <%= raw(sig_keys_html) %>
 </div>
 <form class="search-form" method="get" action="/cache/<%= npub %>/<%= channel_path_seg %>">

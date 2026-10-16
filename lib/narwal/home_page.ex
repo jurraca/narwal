@@ -146,7 +146,9 @@ defmodule Narwal.HomePage do
     :defp,
     :keys_config_template,
     Path.join(@templates, "keys_config.eex"),
-    [:keys], engine: Narwal.HTML)
+    [:keys],
+    engine: Narwal.HTML
+  )
 
   @css """
   :root {
@@ -339,7 +341,7 @@ defmodule Narwal.HomePage do
   .size-value { color: #536d62; font-variant-numeric: tabular-nums; }
   .updated { color: #64746b; font-size: 11px; line-height: 1.5; }
   .updated small { display: block; margin-bottom: 2px; color: #78847b; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
-  .sig-key-line { margin-bottom: 2px; }
+  .sig-key-line { margin-bottom: 2px; display: flex; align-items: center; gap: 8px; min-width: 0; }
   .sig-key {
     display: inline-block;
     max-width: 100%;
@@ -351,6 +353,22 @@ defmodule Narwal.HomePage do
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .copy-btn {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    color: #54746a;
+    border: 1px solid #c8d1c6;
+    border-radius: 4px;
+    background: rgba(250, 250, 244, .55);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .04em;
+    cursor: pointer;
+    user-select: none;
+    transition: color .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .copy-btn:hover { color: var(--sea-dark); border-color: #a9c9b9; background: #fffef9; }
+  .copy-btn.copied { color: var(--sea-dark); border-color: var(--sea); background: var(--sea-pale); }
   .open-arrow {
     width: 32px;
     height: 32px;

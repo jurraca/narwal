@@ -26,5 +26,33 @@
     <p>A public index for a more shareable Nix ecosystem.</p>
   </footer>
 </div>
+<script>
+  function narwalCopy(btn) {
+    navigator.clipboard.writeText(btn.dataset.copy).then(function() {
+      var label = btn.textContent;
+      btn.textContent = "copied";
+      btn.classList.add("copied");
+      setTimeout(function() {
+        btn.textContent = label;
+        btn.classList.remove("copied");
+      }, 1500);
+    });
+  }
+
+  document.addEventListener("click", function(e) {
+    var btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    if (btn.closest("a")) e.preventDefault();
+    narwalCopy(btn);
+  });
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key !== "Enter") return;
+    var btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    e.preventDefault();
+    narwalCopy(btn);
+  });
+</script>
 </body>
 </html>

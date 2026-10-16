@@ -97,6 +97,7 @@ defmodule Narwal.RouterTest do
                ~s(<span class="metric-value">1</span><span class="metric-label">paths</span>)
 
       assert conn.resp_body =~ "narwal-test:W+/RA7v"
+      assert conn.resp_body =~ ~s(data-copy="narwal-test:W+/RA7v)
       assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
     end
 
@@ -151,6 +152,7 @@ defmodule Narwal.RouterTest do
       assert conn.resp_body =~ "narwal-test:W+/RA7v"
       assert conn.resp_body =~ "substituters"
       assert conn.resp_body =~ "://www.example.com"
+      assert conn.resp_body =~ ~s(data-copy="narwal-test:W+/RA7v)
     end
 
     test "GET /cache/<npub>/<channel> lists packages" do
@@ -200,7 +202,7 @@ defmodule Narwal.RouterTest do
 
       assert conn.status == 200
       assert conn.resp_body =~ "&lt;script&gt;"
-      refute conn.resp_body =~ "<script>"
+      refute conn.resp_body =~ "<script>alert"
     end
 
     test "GET /cache/<npub>/<channel> defaults to top-level packages" do
