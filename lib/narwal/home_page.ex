@@ -13,6 +13,11 @@ defmodule Narwal.HomePage do
     packages (not referenced by any other indexed narinfo) by default,
     `?scope=all` for the full closure.
 
+  Rendering lives in `templates/` — plain EEx compiled against the
+  auto-escaping `Narwal.HTML` engine. Conditionals stay in Elixir and
+  pick between fragments; templates only interpolate (escaped) or
+  compose pre-rendered markup via `raw/1`.
+
   Package names come from RootResolver's index-time narinfo enrichment
   (see `Narwal.RootResolver.enrich_leaves/1`); entries whose narinfo
   blob could not be parsed are listed under their hashpart with a nil
@@ -21,6 +26,112 @@ defmodule Narwal.HomePage do
 
   @page_size 100
   @search_cap 50
+
+  @templates Path.join(__DIR__, "home_page/templates")
+  @external_resource Path.join(@templates, "layout.eex")
+  @external_resource Path.join(@templates, "page.eex")
+  @external_resource Path.join(@templates, "card.eex")
+  @external_resource Path.join(@templates, "empty.eex")
+  @external_resource Path.join(@templates, "caches_section.eex")
+  @external_resource Path.join(@templates, "pkgs_section.eex")
+  @external_resource Path.join(@templates, "search_pkg_row.eex")
+  @external_resource Path.join(@templates, "cache_page.eex")
+  @external_resource Path.join(@templates, "pkgs_list.eex")
+  @external_resource Path.join(@templates, "pkg_table.eex")
+  @external_resource Path.join(@templates, "pkg_row.eex")
+  @external_resource Path.join(@templates, "pager.eex")
+
+  require EEx
+
+  EEx.function_from_file(
+    :defp,
+    :layout_template,
+    Path.join(@templates, "layout.eex"),
+    [:title, :css, :body],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(:defp, :page_template, Path.join(@templates, "page.eex"), [:q, :content],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(:defp, :card_template, Path.join(@templates, "card.eex"), [:root],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(:defp, :empty_template, Path.join(@templates, "empty.eex"), [:message],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :caches_section_template,
+    Path.join(@templates, "caches_section.eex"),
+    [:caches],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :pkgs_section_template,
+    Path.join(@templates, "pkgs_section.eex"),
+    [:heading, :pkgs],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :search_pkg_row_template,
+    Path.join(@templates, "search_pkg_row.eex"),
+    [:pkg],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :cache_page_template,
+    Path.join(@templates, "cache_page.eex"),
+    [:body],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :pkgs_list_template,
+    Path.join(@templates, "pkgs_list.eex"),
+    [
+      :npub,
+      :channel,
+      :channel_path_seg,
+      :filtered_count,
+      :updated,
+      :toggle,
+      :q,
+      :content,
+      :pager
+    ],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :pkg_table_template,
+    Path.join(@templates, "pkg_table.eex"),
+    [:rows],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(:defp, :pkg_row_template, Path.join(@templates, "pkg_row.eex"), [:pkg],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :pager_template,
+    Path.join(@templates, "pager.eex"),
+    [:page, :total_pages, :prev, :next],
+    engine: Narwal.HTML
+  )
 
   @css """
   :root {
@@ -101,36 +212,18 @@ defmodule Narwal.HomePage do
 
     body =
       if roots == [] do
-        "<p class=\"empty\">No caches resolved yet.</p>"
+        empty_template("No caches resolved yet.")
       else
         [search_results_html(q), cards_html(roots)] |> Enum.join("\n")
       end
 
-    """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Narwal — Nix Binary Cache</title>
-    <style>#{@css}</style>
-    </head>
-    <body>
-    <h1>Narwal</h1>
-    <div class="subtitle">Nix binary cache index — Nostr + Blossom</div>
-    <form class="search-form" method="get" action="/">
-      <input type="text" name="q" value="#{escape(q)}" placeholder="search packages and caches…">
-    </form>
-    #{body}
-    </body>
-    </html>
-    """
+    layout_template("Nix Binary Cache", @css, page_template(q, body))
   end
 
   defp cards_html(roots) do
     roots
     |> Enum.sort_by(& &1.created_at, :desc)
-    |> Enum.map(&render_cache_card/1)
+    |> Enum.map(&card_template/1)
     |> Enum.join("\n")
   end
 
@@ -142,7 +235,7 @@ defmodule Narwal.HomePage do
     %{caches: caches, pkgs: pkgs, pkg_total: total} = search(q)
 
     if caches == [] and pkgs == [] do
-      "<p class=\"empty\">No matches for \"#{escape(q)}\".</p>"
+      empty_template("No matches for \"#{q}\".")
     else
       [cache_results_html(caches), pkg_results_html(pkgs, total)]
       |> Enum.reject(&(&1 == ""))
@@ -152,39 +245,14 @@ defmodule Narwal.HomePage do
 
   defp cache_results_html([]), do: ""
 
-  defp cache_results_html(caches) do
-    "<div class=\"search-heading\">Caches</div>\n" <>
-      Enum.map_join(caches, "\n", &render_cache_card/1)
-  end
+  defp cache_results_html(caches), do: caches_section_template(caches)
 
   defp pkg_results_html([], _total), do: ""
 
   defp pkg_results_html(pkgs, total) do
     cap_note = if total > length(pkgs), do: " (showing first #{length(pkgs)})", else: ""
-
-    """
-    <div class="search-heading">Packages — #{total} match#{if total == 1, do: "", else: "es"}#{cap_note}</div>
-    <table class="pkg-table">
-      <thead>
-        <tr><th>Package</th><th>Cache</th><th class="size">Size</th></tr>
-      </thead>
-      <tbody>
-      #{Enum.map_join(pkgs, "\n", &search_pkg_row/1)}
-      </tbody>
-    </table>
-    """
-  end
-
-  defp search_pkg_row(pkg) do
-    name = pkg.name || pkg.hashpart
-
-    """
-    <tr>
-      <td><a href="/cache/#{hex_to_npub(pkg.pubkey)}/#{channel_path(pkg.channel)}?q=#{URI.encode_www_form(name)}">#{escape(name)}</a></td>
-      <td class="hash">#{escape(hex_to_npub(pkg.pubkey))} · #{escape(channel_label(pkg.channel))}</td>
-      <td class="size">#{format_bytes(pkg.size)}</td>
-    </tr>
-    """
+    matches = if total == 1, do: "match", else: "matches"
+    pkgs_section_template("Packages — #{total} #{matches}#{cap_note}", pkgs)
   end
 
   @doc """
@@ -205,49 +273,11 @@ defmodule Narwal.HomePage do
       if root do
         render_packages(root, query_params)
       else
-        "<p class=\"empty\">Unknown cache.</p>"
+        empty_template("Unknown cache.")
       end
 
-    """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Narwal — #{escape(channel)}</title>
-    <style>#{@css}</style>
-    </head>
-    <body>
-    <div class="subtitle"><a href="/">← all caches</a></div>
-    #{body}
-    </body>
-    </html>
-    """
+    layout_template(channel, @css, cache_page_template(body))
   end
-
-  ## Cache directory
-
-  defp render_cache_card(root) do
-    """
-    <a class="cache-card" href="/cache/#{hex_to_npub(root.pubkey)}/#{escape(channel_path(root.channel))}">
-      <div class="cache-npub">#{escape(hex_to_npub(root.pubkey))}</div>
-      <div class="cache-meta">channel: #{escape(channel_label(root.channel))}</div>
-      <div class="cache-stats">
-        <span>#{pkg_count(root)}</span>
-        <span>#{format_bytes(Map.get(root, :total_bytes, 0))}</span>
-        <span>updated #{relative_time(root.created_at)}</span>
-      </div>
-    </a>
-    """
-  end
-
-  defp pkg_count(%{pkg_count: total, top_pkg_count: top})
-       when is_integer(total) and is_integer(top),
-       do: "#{top} packages · #{total} paths"
-
-  defp pkg_count(%{pkg_count: count}) when is_integer(count), do: "#{count} packages"
-
-  defp pkg_count(_building), do: "indexing…"
 
   ## Package list
 
@@ -267,62 +297,39 @@ defmodule Narwal.HomePage do
     {rows, prev_page, next_page} = paginate(filtered, page)
     total_pages = total_pages(filtered)
 
-    """
-    <h1>#{escape(hex_to_npub(root.pubkey))}</h1>
-    <div class="subtitle">
-      channel: #{escape(channel_label(root.channel))} ·
-      #{length(filtered)} packages · updated #{relative_time(root.created_at)} ·
-      #{scope_toggle(root, scope, q, length(pkgs))}
-    </div>
-    <form class="search-form" method="get" action="/cache/#{hex_to_npub(root.pubkey)}/#{escape(channel_path(root.channel))}">
-      <input type="text" name="q" value="#{escape(q)}" placeholder="search packages…">
-    </form>
-    #{rows_html(rows)}
-    #{pager_html(page, total_pages, prev_page, next_page, root, q, scope)}
-    """
+    content =
+      if rows == [], do: empty_template("No matching packages."), else: pkg_table_template(rows)
+
+    pkgs_list_template(
+      hex_to_npub(root.pubkey),
+      channel_label(root.channel),
+      channel_path(root.channel),
+      length(filtered),
+      relative_time(root.created_at),
+      scope_toggle(root, scope, q, length(pkgs)),
+      q,
+      content,
+      pager_html(page, total_pages, prev_page, next_page, root, q, scope)
+    )
   end
 
-  defp rows_html([]), do: "<p class=\"empty\">No matching packages.</p>"
+  defp pkg_count(%{pkg_count: total, top_pkg_count: top})
+       when is_integer(total) and is_integer(top),
+       do: "#{top} packages · #{total} paths"
 
-  defp rows_html(rows) do
-    """
-    <table class="pkg-table">
-      <thead>
-        <tr><th>Package</th><th>Hashpart</th><th class="size">Size</th></tr>
-      </thead>
-      <tbody>
-    #{Enum.map_join(rows, "\n", &render_pkg_row/1)}
-      </tbody>
-    </table>
-    """
-  end
+  defp pkg_count(%{pkg_count: count}) when is_integer(count), do: "#{count} packages"
 
-  defp render_pkg_row(pkg) do
-    name = pkg.name || pkg.hashpart
+  defp pkg_count(_building), do: "indexing…"
 
-    """
-    <tr>
-      <td>#{escape(name)}</td>
-      <td class="hash"><a href="/#{escape(pkg.hashpart)}.narinfo">#{escape(pkg.hashpart)}</a></td>
-      <td class="size">#{format_bytes(pkg.size)}</td>
-    </tr>
-    """
-  end
+  defp pager_html(_page, _total_pages, nil, nil, _root, _q, _scope), do: ""
 
   defp pager_html(page, total_pages, prev_page, next_page, root, q, scope) do
-    cond do
-      prev_page == nil and next_page == nil ->
-        ""
-
-      true ->
-        """
-        <div class="pager">
-          #{pager_link(prev_page, "← newer", root, q, scope)}
-          &nbsp;page #{page} of #{total_pages}&nbsp;
-          #{pager_link(next_page, "older →", root, q, scope)}
-        </div>
-        """
-    end
+    pager_template(
+      page,
+      total_pages,
+      pager_link(prev_page, "← newer", root, q, scope),
+      pager_link(next_page, "older →", root, q, scope)
+    )
   end
 
   defp pager_link(nil, label, _root, _q, _scope), do: "<span class=\"dim\">#{label}</span>"
@@ -508,13 +515,4 @@ defmodule Narwal.HomePage do
   defp format_bytes(bytes) do
     "#{Float.round(bytes / (1024 * 1024), 1)} MB"
   end
-
-  defp escape(str) when is_binary(str) do
-    str
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-  end
-
-  defp escape(_), do: ""
 end

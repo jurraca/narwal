@@ -175,6 +175,19 @@ defmodule Narwal.RouterTest do
       assert conn.resp_body =~ "Unknown cache"
     end
 
+    test "package names are HTML-escaped" do
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "<script>alert(1)</script>-1.0", size: 512, top: true}
+      ])
+
+      conn = conn(:get, "/cache/#{@npub}/default")
+      conn = Narwal.Router.call(conn, [])
+
+      assert conn.status == 200
+      assert conn.resp_body =~ "&lt;script&gt;"
+      refute conn.resp_body =~ "<script>"
+    end
+
     test "GET /cache/<npub>/<channel> defaults to top-level packages" do
       put_root_and_pkgs(:default, [
         %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true},

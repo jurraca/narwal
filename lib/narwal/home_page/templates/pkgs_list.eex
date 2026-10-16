@@ -1,0 +1,11 @@
+<h1><%= npub %></h1>
+<div class="subtitle">
+  channel: <%= channel %> ·
+  <%= filtered_count %> packages · updated <%= updated %> ·
+  <%= raw(toggle) %>
+</div>
+<form class="search-form" method="get" action="/cache/<%= npub %>/<%= channel_path_seg %>">
+  <input type="text" name="q" value="<%= q %>" placeholder="search packages…">
+</form>
+<%= raw(content) %>
+<%= raw(pager) %>

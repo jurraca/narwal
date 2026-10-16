@@ -1,0 +1,2 @@
+<div class="subtitle"><a href="/">← all caches</a></div>
+<%= raw(body) %>

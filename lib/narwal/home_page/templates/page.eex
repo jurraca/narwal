@@ -1,0 +1,6 @@
+<h1>Narwal</h1>
+<div class="subtitle">Nix binary cache index — Nostr + Blossom</div>
+<form class="search-form" method="get" action="/">
+  <input type="text" name="q" value="<%= q %>" placeholder="search packages and caches…">
+</form>
+<%= raw(content) %>

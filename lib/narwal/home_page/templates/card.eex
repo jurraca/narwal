@@ -1,0 +1,9 @@
+<a class="cache-card" href="/cache/<%= hex_to_npub(root.pubkey) %>/<%= channel_path(root.channel) %>">
+  <div class="cache-npub"><%= hex_to_npub(root.pubkey) %></div>
+  <div class="cache-meta">channel: <%= channel_label(root.channel) %></div>
+  <div class="cache-stats">
+    <span><%= pkg_count(root) %></span>
+    <span><%= format_bytes(Map.get(root, :total_bytes, 0)) %></span>
+    <span>updated <%= relative_time(root.created_at) %></span>
+  </div>
+</a>
