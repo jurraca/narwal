@@ -1,6 +1,7 @@
 <a class="cache-card" href="/cache/<%= hex_to_npub(root.pubkey) %>/<%= channel_path(root.channel) %>">
   <div class="cache-main">
     <div class="cache-name-line"><span class="cache-name"><%= hex_to_npub(root.pubkey) %></span><span class="channel"><%= channel_label(root.channel) %></span></div>
+    <%= raw(Enum.map_join(Map.get(root, :nix_sig_keys, []), "\n", &sig_key_template/1)) %>
   </div>
   <div class="metrics" aria-label="Cache index counts">
     <div class="metric-line"><span class="metric-value"><%= pkg_packages(root) %></span><span class="metric-label">packages</span></div>

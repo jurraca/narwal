@@ -46,7 +46,10 @@ defmodule Narwal.Router do
 
     conn
     |> put_resp_content_type("text/html")
-    |> send_resp(200, HomePage.render_cache_page(pubkey, channel, conn.query_params))
+    |> send_resp(
+      200,
+      HomePage.render_cache_page(pubkey, channel, conn.query_params, base_url(conn))
+    )
   end
 
   get "/nix-cache-info" do
@@ -261,6 +264,19 @@ defmodule Narwal.Router do
       {:ok, node} -> {:ok, node}
       :miss -> TreeCache.fetch_node(hex_hash, servers)
     end
+  end
+
+  # The site's own URL, for the nix config block on cache pages. The
+  # scheme comes from the proxy when fronted by TLS (Caddy), so trust
+  # X-Forwarded-Proto before falling back to conn.scheme.
+  defp base_url(conn) do
+    scheme =
+      case get_req_header(conn, "x-forwarded-proto") do
+        [proto] -> proto
+        _ -> conn.scheme
+      end
+
+    "#{scheme}://#{conn.host}"
   end
 
   defp split_filehash(path) do

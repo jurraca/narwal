@@ -41,6 +41,8 @@ defmodule Narwal.HomePage do
   @external_resource Path.join(@templates, "pkg_table.eex")
   @external_resource Path.join(@templates, "pkg_row.eex")
   @external_resource Path.join(@templates, "pager.eex")
+  @external_resource Path.join(@templates, "sig_key.eex")
+  @external_resource Path.join(@templates, "keys_config.eex")
 
   require EEx
 
@@ -109,6 +111,8 @@ defmodule Narwal.HomePage do
       :toggle,
       :q,
       :content,
+      :base_url,
+      :sig_keys_html,
       :pager
     ],
     engine: Narwal.HTML
@@ -133,6 +137,16 @@ defmodule Narwal.HomePage do
     [:page, :total_pages, :prev, :next],
     engine: Narwal.HTML
   )
+
+  EEx.function_from_file(:defp, :sig_key_template, Path.join(@templates, "sig_key.eex"), [:key],
+    engine: Narwal.HTML
+  )
+
+  EEx.function_from_file(
+    :defp,
+    :keys_config_template,
+    Path.join(@templates, "keys_config.eex"),
+    [:keys], engine: Narwal.HTML)
 
   @css """
   :root {
@@ -325,6 +339,18 @@ defmodule Narwal.HomePage do
   .size-value { color: #536d62; font-variant-numeric: tabular-nums; }
   .updated { color: #64746b; font-size: 11px; line-height: 1.5; }
   .updated small { display: block; margin-bottom: 2px; color: #78847b; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+  .sig-key-line { margin-bottom: 2px; }
+  .sig-key {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: -.02em;
+    color: #344a41;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .open-arrow {
     width: 32px;
     height: 32px;
@@ -424,6 +450,34 @@ defmodule Narwal.HomePage do
     color: #263a34;
   }
   .subtitle-line { margin: 0 0 18px; color: #65746d; font-size: 12px; }
+  .nix-config {
+    margin: 0 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: rgba(251, 250, 245, .82);
+  }
+  .config-line { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .config-label {
+    flex: 0 0 auto;
+    color: #65746d;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .config-value {
+    margin: 0;
+    color: #344a41;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: -.02em;
+    overflow-wrap: anywhere;
+  }
   @keyframes arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -523,10 +577,11 @@ defmodule Narwal.HomePage do
   Render the package list for one cache (`/cache/<pubkey>/<channel>`).
 
   `query_params` is the conn's query params: `q` filters by package name
-  (substring, case-insensitive), `page` is 1-based.
+  (substring, case-insensitive), `page` is 1-based. `base_url` is the
+  site's own URL (scheme + host), used for the nix config block.
   """
-  @spec render_cache_page(String.t(), String.t(), map()) :: binary()
-  def render_cache_page(pubkey, channel, query_params) do
+  @spec render_cache_page(String.t(), String.t(), map(), String.t()) :: binary()
+  def render_cache_page(pubkey, channel, query_params, base_url) do
     roots = get_roots()
     pubkey = normalize_pubkey(pubkey)
 
@@ -535,7 +590,7 @@ defmodule Narwal.HomePage do
 
     body =
       if root do
-        render_packages(root, query_params)
+        render_packages(root, query_params, base_url)
       else
         empty_template("Unknown cache.")
       end
@@ -545,7 +600,7 @@ defmodule Narwal.HomePage do
 
   ## Package list
 
-  defp render_packages(root, params) do
+  defp render_packages(root, params, base_url) do
     pkgs = get_pkgs(root.pubkey, root.channel)
     scope = scope_param(params["scope"])
     scoped = if scope == :all, do: pkgs, else: Enum.filter(pkgs, &Map.get(&1, :top, true))
@@ -573,9 +628,15 @@ defmodule Narwal.HomePage do
       scope_toggle(root, scope, q, length(pkgs)),
       q,
       content,
+      base_url,
+      sig_keys_html(Map.get(root, :nix_sig_keys, [])),
       pager_html(page, total_pages, prev_page, next_page, root, q, scope)
     )
   end
+
+  defp sig_keys_html([]), do: ""
+
+  defp sig_keys_html(keys), do: keys_config_template(Enum.join(keys, " "))
 
   defp pkg_packages(%{top_pkg_count: top}) when is_integer(top), do: format_count(top)
   defp pkg_packages(_building), do: "indexing…"

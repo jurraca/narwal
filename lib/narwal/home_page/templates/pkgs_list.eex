@@ -3,6 +3,10 @@
   <%= filtered_count %> packages · updated <%= updated %> ·
   <%= raw(toggle) %>
 </p>
+<div class="nix-config">
+  <div class="config-line"><span class="config-label">substituters</span><code class="config-value"><%= base_url %></code></div>
+  <%= raw(sig_keys_html) %>
+</div>
 <form class="search-form" method="get" action="/cache/<%= npub %>/<%= channel_path_seg %>">
   <input type="text" name="q" value="<%= q %>" placeholder="Search packages…">
 </form>

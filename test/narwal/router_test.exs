@@ -59,7 +59,9 @@ defmodule Narwal.RouterTest do
       root = %{
         root_hash_hex: String.duplicate("ab", 32),
         blossom_servers: [],
-        nix_sig_keys: [],
+        nix_sig_keys: [
+          "narwal-test:W+/RA7vJszF/BXjVXFNXFhTPg2/ZNi+TeG+y4xIR9FYzluQwsipEyLDKHDdC8HjkGZxjmgnGTdw6u6yVTn2fAA=="
+        ],
         created_at: System.os_time(:second),
         event_id: "test",
         link_count: length(pkgs) + 1,
@@ -94,6 +96,7 @@ defmodule Narwal.RouterTest do
       assert conn.resp_body =~
                ~s(<span class="metric-value">1</span><span class="metric-label">paths</span>)
 
+      assert conn.resp_body =~ "narwal-test:W+/RA7v"
       assert conn.resp_body =~ "href=\"/cache/#{@npub}/default\""
     end
 
@@ -134,7 +137,9 @@ defmodule Narwal.RouterTest do
     end
 
     test "GET /cache/<hex>/<channel> lists packages" do
-      put_root_and_pkgs(:default, [%{hashpart: @hashpart, name: "hello-2.12.1", size: 512}])
+      put_root_and_pkgs(:default, [
+        %{hashpart: @hashpart, name: "hello-2.12.1", size: 512, top: true}
+      ])
 
       conn = conn(:get, "/cache/#{@pubkey}/default")
       conn = Narwal.Router.call(conn, [])
@@ -142,6 +147,10 @@ defmodule Narwal.RouterTest do
       assert conn.status == 200
       assert conn.resp_body =~ "hello-2.12.1"
       assert conn.resp_body =~ @hashpart
+      assert conn.resp_body =~ "trusted-public-keys"
+      assert conn.resp_body =~ "narwal-test:W+/RA7v"
+      assert conn.resp_body =~ "substituters"
+      assert conn.resp_body =~ "://www.example.com"
     end
 
     test "GET /cache/<npub>/<channel> lists packages" do
