@@ -3,7 +3,7 @@ defmodule Narwal.Narinfo do
   Minimal narinfo text parser.
 
   Narinfos are small key-value text files (one `"Field: value"` pair per
-  line). The home page needs three fields: `StorePath:` (package
+  line). The index needs three fields: `StorePath:` (package
   identity — the tree itself carries only hashparts), `FileSize:`
   (compressed NAR download size) and `References:` (dependency store
   paths, used to compute which packages are top-level).

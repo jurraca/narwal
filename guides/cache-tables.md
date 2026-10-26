@@ -1,6 +1,6 @@
 # Narwal ETS Cache Tables
 
-Narwal maintains two separate ETS tables with distinct responsibilities. Both are owned by GenServers but are public and accessed directly by other processes (Router, Dashboard) without GenServer calls for performance.
+Narwal maintains two separate ETS tables with distinct responsibilities. Both are owned by GenServers but are public and accessed directly by other processes (Router, Narwal.Index) without GenServer calls for performance.
 
 ## 1. `:narwal_roots` — owned by `RootResolver`
 
@@ -74,8 +74,8 @@ Key: `{{:narinfo, "hash_hex"}, <<raw bytes>>}`
 
 | Table | What it stores | Who writes | Who reads | Why separate |
 |-------|---------------|-----------|-----------|--------------|
-| `:narwal_roots` | Mutable index + publisher metadata | `RootResolver` on Nostr event | `Router` (narinfo filename lookup), `Dashboard` (publisher list) | Needs to be wiped and rebuilt when a publisher replaces their root |
-| `:narwal_tree_cache` | Immutable content-addressed blobs | `RootResolver` (tree walk), `Router` (cold path miss) | `RootResolver` (tree walk), `Router` (narinfo bytes), `Dashboard` (manifest display) | Never needs eviction — same hash always means same bytes |
+| `:narwal_roots` | Mutable index + publisher metadata | `RootResolver` on Nostr event | `Router` (narinfo filename lookup), `Narwal.Index` (publisher list) | Needs to be wiped and rebuilt when a publisher replaces their root |
+| `:narwal_tree_cache` | Immutable content-addressed blobs | `RootResolver` (tree walk), `Router` (cold path miss) | `RootResolver` (tree walk), `Router` (narinfo bytes) | Never needs eviction — same hash always means same bytes |
 
 ## Cache flow example
 
