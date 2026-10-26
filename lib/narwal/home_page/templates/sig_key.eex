@@ -1,4 +1,0 @@
-<div class="sig-key-line">
-  <span class="sig-key" title="<%= key %>"><%= key %></span>
-  <span class="copy-btn" role="button" tabindex="0" data-copy="<%= key %>">copy</span>
-</div>

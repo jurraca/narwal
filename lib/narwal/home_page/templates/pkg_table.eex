@@ -1,8 +1,0 @@
-<table class="pkg-table">
-  <thead>
-    <tr><th>Package</th><th>Hashpart</th><th class="size">Size</th></tr>
-  </thead>
-  <tbody>
-  <%= raw(Enum.map_join(rows, "\n", &pkg_row_template/1)) %>
-  </tbody>
-</table>

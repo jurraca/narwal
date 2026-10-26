@@ -1,9 +1,0 @@
-<div class="search-heading"><%= heading %></div>
-<table class="pkg-table">
-  <thead>
-    <tr><th>Package</th><th>Cache</th><th class="size">Size</th></tr>
-  </thead>
-  <tbody>
-  <%= raw(Enum.map_join(pkgs, "\n", &search_pkg_row_template/1)) %>
-  </tbody>
-</table>

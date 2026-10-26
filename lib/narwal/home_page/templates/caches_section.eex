@@ -1,2 +1,0 @@
-<div class="search-heading">Caches</div>
-<%= raw(Enum.map_join(caches, "\n", &card_template/1)) %>

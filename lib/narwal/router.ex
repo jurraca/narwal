@@ -3,8 +3,6 @@ defmodule Narwal.Router do
   Plug router presenting the Nix binary cache HTTP API.
 
   Endpoints:
-  - GET / — public home page (cache directory)
-  - GET /cache/<pubkey>/<channel> — package listing for one cache
   - GET /nix-cache-info — static text
   - GET /<hashpart>.narinfo — resolve via Nostr root + hashtree + Blossom
   - HEAD /<hashpart>.narinfo — existence check
@@ -25,32 +23,13 @@ defmodule Narwal.Router do
 
   require Logger
 
-  alias Narwal.{Blossom, HomePage, Manifest, Nix32, RootResolver, Stats, TreeCache}
+  alias Narwal.{Blossom, Manifest, Nix32, RootResolver, Stats, TreeCache}
 
-  plug(:maybe_log)
+  plug(Plug.Logger)
   plug(:cors)
   plug(Plug.Parsers, parsers: [:urlencoded])
   plug(:match)
   plug(:dispatch)
-
-  get "/" do
-    conn = fetch_query_params(conn)
-
-    conn
-    |> put_resp_content_type("text/html")
-    |> send_resp(200, HomePage.render_page(conn.query_params))
-  end
-
-  get "/cache/:pubkey/:channel" do
-    conn = fetch_query_params(conn)
-
-    conn
-    |> put_resp_content_type("text/html")
-    |> send_resp(
-      200,
-      HomePage.render_cache_page(pubkey, channel, conn.query_params, base_url(conn))
-    )
-  end
 
   get "/nix-cache-info" do
     body = build_cache_info()
@@ -266,19 +245,6 @@ defmodule Narwal.Router do
     end
   end
 
-  # The site's own URL, for the nix config block on cache pages. The
-  # scheme comes from the proxy when fronted by TLS (Caddy), so trust
-  # X-Forwarded-Proto before falling back to conn.scheme.
-  defp base_url(conn) do
-    scheme =
-      case get_req_header(conn, "x-forwarded-proto") do
-        [proto] -> proto
-        _ -> conn.scheme
-      end
-
-    "#{scheme}://#{conn.host}"
-  end
-
   defp split_filehash(path) do
     case String.split(path, ".", parts: 2) do
       [hash, ext] -> {hash, "." <> ext}
@@ -290,14 +256,6 @@ defmodule Narwal.Router do
     priority = Application.get_env(:narwal, :priority, 30)
     store_dir = Application.get_env(:narwal, :store_dir, "/nix/store")
     "StoreDir: #{store_dir}\nWantMassQuery: 0\nPriority: #{priority}\n"
-  end
-
-  defp maybe_log(conn, _opts) do
-    if String.starts_with?(conn.request_path, "/dashboard") do
-      conn
-    else
-      Plug.Logger.call(conn, :info)
-    end
   end
 
   defp cors(conn, _opts) do

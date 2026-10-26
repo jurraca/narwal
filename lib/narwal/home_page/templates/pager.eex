@@ -1,5 +1,0 @@
-<div class="pager">
-  <%= raw(prev) %>
-  &nbsp;page <%= page %> of <%= total_pages %>&nbsp;
-  <%= raw(next) %>
-</div>

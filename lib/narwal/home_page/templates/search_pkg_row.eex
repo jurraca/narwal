@@ -1,5 +1,0 @@
-<tr>
-  <td><a href="/cache/<%= hex_to_npub(pkg.pubkey) %>/<%= channel_path(pkg.channel) %>?q=<%= URI.encode_www_form(pkg.name || pkg.hashpart) %>"><%= pkg.name || pkg.hashpart %></a></td>
-  <td class="hash"><%= hex_to_npub(pkg.pubkey) %> · <%= channel_label(pkg.channel) %></td>
-  <td class="size"><%= format_bytes(pkg.size) %></td>
-</tr>

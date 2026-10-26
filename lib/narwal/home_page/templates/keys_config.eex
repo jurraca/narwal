@@ -1,5 +1,0 @@
-<div class="config-line">
-  <span class="config-label">trusted-public-keys</span>
-  <code class="config-value"><%= keys %></code>
-  <span class="copy-btn" role="button" tabindex="0" data-copy="<%= keys %>">copy</span>
-</div>

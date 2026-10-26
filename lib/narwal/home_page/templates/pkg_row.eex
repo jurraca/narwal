@@ -1,5 +1,0 @@
-<tr>
-  <td><%= pkg.name || pkg.hashpart %></td>
-  <td class="hash"><a href="/<%= pkg.hashpart %>.narinfo"><%= pkg.hashpart %></a></td>
-  <td class="size"><%= format_bytes(pkg.size) %></td>
-</tr>

@@ -26,4 +26,4 @@ narwal-*.tar
 .nix-hex
 .formatter.exs
 .envrc
-home-page-mockup.html
+result
