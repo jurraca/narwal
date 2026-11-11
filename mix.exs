@@ -26,10 +26,10 @@ defmodule Narwal.MixProject do
 
   defp deps do
     [
-      {:bandit, "~> 1.12.5"},
+      {:bandit, "~> 1.14.1"},
       {:plug, "~> 1.20.3"},
       {:req, "~> 0.7.2", override: true},
-      {:msgpax, "~> 2.0"},
+      {:msgpax, "~> 2.4.0"},
       {:bechamel, "~> 1.1"},
       {:nostr_ex, "~> 0.3.0"},
       {:nostr_core, "~> 0.1.0"},
