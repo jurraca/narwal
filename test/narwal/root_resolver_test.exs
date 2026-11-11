@@ -15,7 +15,7 @@ defmodule Narwal.RootResolverTest do
     %{h: :crypto.strong_rand_bytes(32), n: name, s: size, t: t}
   end
 
-  defp put_narinfo(name, narinfo_text) do
+  defp put_narinfo(_name, narinfo_text) do
     hex = Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
     TreeCache.insert_narinfo(hex, narinfo_text)
     hex
